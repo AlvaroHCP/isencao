@@ -768,12 +768,11 @@
       <div class="list-toolbar">
         <span class="selected-count" id="selectedCount">nenhum curso selecionado</span>
         <span class="list-toolbar-actions">
-          <button type="button" id="selectAllTI">marcar cursos de TI</button>
           <button type="button" id="clearAll">limpar seleção</button>
         </span>
       </div>
       <div class="curso-list" id="cursoList"></div>
-      <div class="preview-note">Todos os cursos encontrados na aba OFERTAS aparecem aqui. Os marcados com <span class="ti-badge">TI</span> são os reconhecidos como cursos de Tecnologia da Informação, mas qualquer curso pode ser selecionado.</div>
+      <div class="preview-note">Todos os cursos encontrados na aba OFERTAS aparecem aqui. Marque quantos quiser para exportar.</div>
     </div>
   </div>
 
@@ -1010,11 +1009,10 @@ function renderCursoList(){
   var listEl = document.getElementById('cursoList');
   listEl.innerHTML = '';
   state.cursosFound.forEach(function(curso){
-    var isTI = TARGET_COURSES.indexOf(curso) !== -1;
     var total = state.dataByCurso[curso].length;
 
     var item = document.createElement('label');
-    item.className = 'curso-item' + (isTI ? '' : ' no-ti');
+    item.className = 'curso-item';
     item.dataset.curso = curso;
 
     var cb = document.createElement('input');
@@ -1036,12 +1034,6 @@ function renderCursoList(){
 
     item.appendChild(cb);
     item.appendChild(name);
-    if(isTI){
-      var badge = document.createElement('span');
-      badge.className = 'ti-badge';
-      badge.textContent = 'TI';
-      item.appendChild(badge);
-    }
     item.appendChild(count);
     listEl.appendChild(item);
   });
@@ -1173,18 +1165,6 @@ window.RelatorioUploaderComponent.onLoad(function(wb, origemLabel){
 
 
 // Toolbar actions
-document.getElementById('selectAllTI').addEventListener('click', function(){
-  var checkboxes = document.querySelectorAll('#cursoList input[type=checkbox]');
-  checkboxes.forEach(function(cb){
-    var curso = cb.value;
-    var isTI = TARGET_COURSES.indexOf(curso) !== -1;
-    if(isTI && !cb.checked){
-      cb.checked = true;
-      cb.dispatchEvent(new Event('change'));
-    }
-  });
-});
-
 document.getElementById('clearAll').addEventListener('click', function(){
   var checkboxes = document.querySelectorAll('#cursoList input[type=checkbox]');
   checkboxes.forEach(function(cb){
