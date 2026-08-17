@@ -460,6 +460,107 @@
     }
   };
 })();
+
+// ============================================================================
+// COMPONENTE ÚNICO: Upload do Relatório Consolidado
+// ----------------------------------------------------------------------------
+// Mesmo padrão do componente da Planilha de Isenção ATUAL acima: é o único
+// ponto de código que lê o Relatório consolidado, e é "montado" tanto na aba
+// "Extrator de Matrizes" quanto na aba "Analisador de Isenção de Disciplinas"
+// — anexar o arquivo em qualquer uma das duas abas alimenta as duas.
+//
+// - window.relatorioConsolidadoAtual: variável GLOBAL única com o workbook.
+// - window.RelatorioUploaderComponent.mount(container): desenha botão + status.
+// - window.RelatorioUploaderComponent.onLoad(fn): callback chamado sempre que
+//   um Relatório válido (com aba "Com ementa" ou "Ementas disponíveis") é
+//   carregado, de qualquer uma das abas.
+// ============================================================================
+(function(){
+  window.relatorioConsolidadoAtual = null;
+
+  var loadListeners = [];
+  var statusListeners = [];
+
+  function setAllStatus(text, color){
+    statusListeners.forEach(function(fn){ fn(text, color); });
+  }
+
+  function processFile(file){
+    setAllStatus('Lendo "' + file.name + '"…', '#6b6c5e');
+    var reader = new FileReader();
+    reader.onload = function(evt){
+      setTimeout(function(){
+        try{
+          var data = new Uint8Array(evt.target.result);
+          var wb = XLSX.read(data, { type: 'array', cellDates: false });
+          if (!wb.Sheets['Com ementa'] && !wb.Sheets['Ementas disponíveis']) {
+            setAllStatus('Arquivo inválido: aba "Com ementa" ou "Ementas disponíveis" não encontrada.', '#8a3b2a');
+            return;
+          }
+          window.relatorioConsolidadoAtual = wb;
+          setAllStatus(file.name + ' — carregado com sucesso.', '#3a5a40');
+          loadListeners.forEach(function(fn){
+            try{ fn(wb, file.name); }catch(e){ console.error('Erro em onLoad do RelatorioUploaderComponent:', e); }
+          });
+        }catch(err){
+          console.error('Erro ao ler Relatório consolidado:', err);
+          setAllStatus('Erro ao ler o arquivo: ' + err.message, '#8a3b2a');
+        }
+      }, 10);
+    };
+    reader.onerror = function(){ setAllStatus('Falha ao ler o arquivo.', '#8a3b2a'); };
+    reader.readAsArrayBuffer(file);
+  }
+
+  window.RelatorioUploaderComponent = {
+    onLoad: function(fn){ if(typeof fn === 'function') loadListeners.push(fn); },
+    onStatus: function(fn){ if(typeof fn === 'function') statusListeners.push(fn); },
+    setStatus: function(text, color){ setAllStatus(text, color); },
+
+    mount: function(containerEl){
+      if(!containerEl) return;
+      containerEl.innerHTML = '';
+
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:14px;flex-wrap:wrap;';
+
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = 'Escolher Relatório Consolidado';
+      btn.style.cssText = 'font-family:inherit;font-size:13px;font-weight:600;padding:9px 16px;background:#D11C5C;color:#fff;border:none;border-radius:999px;cursor:pointer;flex-shrink:0;';
+      btn.addEventListener('mouseenter', function(){ btn.style.background = '#A8154A'; });
+      btn.addEventListener('mouseleave', function(){ btn.style.background = '#D11C5C'; });
+
+      var input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.xlsx,.xls';
+      input.style.display = 'none';
+
+      var status = document.createElement('p');
+      status.style.cssText = 'font-size:12px;margin:6px 0 0;font-family:inherit;color:#6b6c5e;';
+      status.textContent = window.relatorioConsolidadoAtual
+        ? 'Relatório consolidado já carregado (compartilhado entre as abas).'
+        : 'Nenhum arquivo carregado ainda (opcional).';
+      if (window.relatorioConsolidadoAtual) status.style.color = '#3a5a40';
+
+      btn.addEventListener('click', function(){ input.click(); });
+      input.addEventListener('change', function(){
+        var file = input.files[0];
+        if (file) processFile(file);
+      });
+
+      row.appendChild(btn);
+      row.appendChild(input);
+      containerEl.appendChild(row);
+      containerEl.appendChild(status);
+
+      statusListeners.push(function(text, color){
+        status.textContent = text;
+        status.style.color = color || '#6b6c5e';
+      });
+    }
+  };
+})();
 </script>
 <div class="site-tabs">
   <button type="button" class="site-tab-btn active" id="siteTabBtnExtrator">Extrator de Matrizes</button>
@@ -474,7 +575,7 @@
     <div>
       <div class="eyebrow"><span>Registro Acadêmico</span><span id="clock"></span></div>
       <h1>Extrator de Matrizes</h1>
-      <p class="sub">Carregue a Planilha de Isenção e o Relatório consolidado de ementas. Selecione um ou mais cursos e exporte a lista de disciplinas cruzada com as ementas disponíveis — uma aba por curso selecionado, no mesmo formato do relatório anterior.</p>
+      <p class="sub">Carregue a Planilha de Isenção ATUAL para liberar a seleção de cursos e a exportação. O Relatório consolidado de ementas é opcional: se anexado, cruza as ementas disponíveis nas disciplinas exportadas; sem ele, a exportação sai só com o que existe na Planilha de Isenção.</p>
     </div>
   </header>
 
@@ -488,11 +589,9 @@
         <span class="upload-label" style="display:block; margin-bottom:8px;">Planilha de Isenção ATUAL</span>
         <div id="isencaoUploaderTab1"></div>
       </div>
-      <div class="upload-row">
-        <span class="upload-label">Relatório consolidado</span>
-        <button class="file-btn" id="btnRelatorio">Escolher arquivo</button>
-        <input type="file" id="fileRelatorio" accept=".xlsx,.xls">
-        <span class="file-status" id="statusRelatorio">nenhum arquivo</span>
+      <div class="upload-row" style="display:block; padding-top:14px; padding-bottom:14px;">
+        <span class="upload-label" style="display:block; margin-bottom:8px;">Relatório consolidado (opcional)</span>
+        <div id="relatorioUploaderTab1"></div>
       </div>
       <div class="log" id="log1"></div>
     </div>
@@ -709,19 +808,24 @@ function extractData(isencaoWB, lookups){
 function tryProcess(){
   var log1 = document.getElementById('log1');
   log1.textContent = '';
-  if(!window.planilhaIsencaoAtual || !state.relatorioWB) return;
+  if(!window.planilhaIsencaoAtual) return;
 
   if(!window.planilhaIsencaoAtual.Sheets['OFERTAS']){
     log1.textContent = 'Erro: a Planilha de Isenção não contém a aba "OFERTAS" esperada.';
     return;
   }
-  if(!state.relatorioWB.Sheets['Com ementa'] && !state.relatorioWB.Sheets['Ementas disponíveis']){
+
+  var temRelatorio = !!state.relatorioWB;
+  if(temRelatorio && !state.relatorioWB.Sheets['Com ementa'] && !state.relatorioWB.Sheets['Ementas disponíveis']){
     log1.textContent = 'Erro: o Relatório consolidado não contém as abas "Com ementa" / "Ementas disponíveis" esperadas.';
     return;
   }
 
   try{
-    var lookups = buildLookups(state.relatorioWB);
+    // Sem o Relatório consolidado, os lookups ficam vazios: os cursos e
+    // disciplinas vêm normalmente da Planilha de Isenção, só que sem
+    // cruzamento de ementa (colunas de ementa saem em branco, sem inventar).
+    var lookups = temRelatorio ? buildLookups(state.relatorioWB) : { comEmenta: {}, ementasDisp: {} };
     state.dataByCurso = extractData(window.planilhaIsencaoAtual, lookups);
     state.cursosFound = Object.keys(state.dataByCurso).sort(function(a,b){
       return a.localeCompare(b, 'pt-BR');
@@ -732,7 +836,9 @@ function tryProcess(){
 
     document.getElementById('step2').classList.remove('disabled');
     var tiCount = state.cursosFound.filter(function(c){ return TARGET_COURSES.indexOf(c) !== -1; }).length;
-    log1.textContent = 'Planilhas carregadas · ' + state.cursosFound.length + ' cursos identificados (' + tiCount + ' de TI).';
+    log1.textContent = temRelatorio
+      ? ('Planilhas carregadas · ' + state.cursosFound.length + ' cursos identificados (' + tiCount + ' de TI) · ementas cruzadas com o Relatório consolidado.')
+      : ('Planilha de Isenção carregada · ' + state.cursosFound.length + ' cursos identificados (' + tiCount + ' de TI) · sem Relatório consolidado anexado, então as colunas de ementa saem em branco.');
   }catch(err){
     log1.textContent = 'Erro ao processar: ' + err.message;
   }
@@ -881,43 +987,26 @@ window.IsencaoUploaderComponent.onLoad(function(wb, origemLabel){
   tryProcess(); // já lê de window.planilhaIsencaoAtual
 });
 
-// File wiring (usado apenas para o Relatório consolidado — a Planilha de
-// Isenção é tratada pelo componente compartilhado acima).
-function wireFile(btnId, inputId, statusId, target){
-  var btn = document.getElementById(btnId);
-  var input = document.getElementById(inputId);
-  var status = document.getElementById(statusId);
-  btn.addEventListener('click', function(){ input.click(); });
-  input.addEventListener('change', function(){
-    var file = input.files[0];
-    if(!file) return;
-    setStatus(status, 'lendo ' + file.name + '…');
-    readWorkbook(file, function(err, wb){
-      if(err){
-        setStatus(status, 'erro: ' + err.message, 'err');
-        return;
-      }
+// Monta o componente único de upload do Relatório consolidado nesta aba.
+// Registrado uma única vez (aqui), este onLoad roda sempre que o Relatório
+// for carregado de QUALQUER uma das duas abas: atualiza a lista de cursos
+// (com ementas cruzadas) na aba 1 e compartilha o índice de ementas com a
+// aba "Analisador de Isenção de Disciplinas".
+window.RelatorioUploaderComponent.mount(document.getElementById('relatorioUploaderTab1'));
+window.RelatorioUploaderComponent.onLoad(function(wb, origemLabel){
+  state.relatorioWB = wb;
+  tryProcess();
 
-      state[target] = wb;
-      setStatus(status, file.name, 'ok');
-      tryProcess();
-
-      // Disponibiliza as informações de disciplinas (ementas) do Relatório
-      // consolidado para a aba "Analisador de Isenção de Disciplinas".
-      if(target === 'relatorioWB' && window.IsencaoAnalyzer && typeof window.IsencaoAnalyzer.loadEmentas === 'function'){
-        try{
-          var lookupsParaIsencao = buildLookups(wb);
-          var indiceEmentas = buildEmentasIndexParaIsencao(lookupsParaIsencao);
-          window.IsencaoAnalyzer.loadEmentas(indiceEmentas, file.name);
-        }catch(e){
-          // Se o Relatório não tiver as abas esperadas, apenas não compartilha ementas (não trava a aba 1).
-        }
-      }
-    });
-  });
-}
-
-wireFile('btnRelatorio', 'fileRelatorio', 'statusRelatorio', 'relatorioWB');
+  if(window.IsencaoAnalyzer && typeof window.IsencaoAnalyzer.loadEmentas === 'function'){
+    try{
+      var lookupsParaIsencao = buildLookups(wb);
+      var indiceEmentas = buildEmentasIndexParaIsencao(lookupsParaIsencao);
+      window.IsencaoAnalyzer.loadEmentas(indiceEmentas, origemLabel);
+    }catch(e){
+      // Se o Relatório não tiver as abas esperadas, apenas não compartilha ementas (não trava nenhuma aba).
+    }
+  }
+});
 
 
 
@@ -1005,6 +1094,12 @@ document.getElementById('exportBtn').addEventListener('click', function(){
             <label class="block text-sm font-semibold text-gray-700 mb-2">1. Importar Base de Dados (.xlsx):</label>
             <div id="isencaoUploaderTab2"></div>
             <p class="text-xs text-gray-600 mt-2">O arquivo precisa conter as abas <strong>OFERTAS</strong>, <strong>INSTITUIÇÕES</strong> e <strong>PROF</strong> (ex: "Planilha de Isenção ATUAL.xlsx"). Este é o mesmo componente de upload usado na aba "Extrator de Matrizes" — anexar aqui ou lá alimenta as duas abas.</p>
+        </div>
+
+        <div class="mb-8 p-6 bg-gray-50 rounded-lg border border-gray-200">
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Relatório consolidado (opcional):</label>
+            <div id="relatorioUploaderTab2"></div>
+            <p class="text-xs text-gray-600 mt-2">O arquivo precisa conter a aba <strong>Com ementa</strong> ou <strong>Ementas disponíveis</strong>. Mesmo componente de upload usado na aba "Extrator de Matrizes" — anexar aqui ou lá alimenta as duas abas. As ementas ficam disponíveis nesta aba como o ícone 📄 ao lado de cada disciplina da matriz de destino.</p>
             <p id="statusEmentas" class="text-xs mt-1 font-medium text-gray-500"></p>
         </div>
 
@@ -1293,6 +1388,13 @@ document.getElementById('exportBtn').addEventListener('click', function(){
         window.IsencaoUploaderComponent.onLoad(function(wb, origemLabel){
             processarWorkbook(wb, origemLabel);
         });
+
+        // Monta também o componente compartilhado de upload do Relatório
+        // consolidado nesta aba. O processamento (montagem do índice de
+        // ementas e atualização do status/ícones 📄) já está registrado uma
+        // única vez na aba "Extrator de Matrizes" e roda para qualquer uma
+        // das duas abas — aqui só é preciso desenhar o botão.
+        window.RelatorioUploaderComponent.mount(document.getElementById('relatorioUploaderTab2'));
 
         // Exposto para a aba "Extrator de Matrizes" enviar as ementas do
         // Relatório consolidado para esta aba (o carregamento da própria
