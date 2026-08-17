@@ -102,105 +102,120 @@
     line-height:1.5;
     min-height:100vh;
   }
-  .wrap{max-width:960px;margin:0 auto;padding:0 24px 80px;}
+  .wrap{
+    max-width:1280px;
+    margin:24px auto 48px;
+    padding:24px 24px 32px;
+    background:#fff;
+    border-radius:.75rem;
+    box-shadow:0 4px 6px -1px rgba(0,0,0,.08), 0 2px 4px -2px rgba(0,0,0,.06);
+  }
+  @media (min-width:768px){ .wrap{padding:32px;} }
 
   header.masthead{
-    border-bottom:3px solid var(--ink);
-    padding:40px 0 18px;
-    margin-bottom:36px;
+    display:flex;
+    align-items:center;
+    gap:16px;
+    border-bottom:1px solid #e5e7eb;
+    padding-bottom:16px;
+    margin-bottom:24px;
+  }
+  header.masthead .masthead-badge{
+    width:40px;height:40px;border-radius:999px;flex-shrink:0;
+    background:var(--afya-magenta);color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:13px;
   }
   .eyebrow{
-    font-family:var(--mono);
     font-size:11px;
-    letter-spacing:.14em;
+    letter-spacing:.06em;
     text-transform:uppercase;
-    color:var(--accent);
+    color:var(--afya-magenta);
     display:flex;
     justify-content:space-between;
-    margin-bottom:14px;
+    margin-bottom:4px;
   }
   h1{
-    font-family:var(--serif);
-    font-weight:600;
-    font-size:clamp(32px,5vw,48px);
-    margin:0 0 8px;
-    letter-spacing:-0.01em;
+    font-weight:700;
+    font-size:22px;
+    margin:0;
+    color:#1f2937;
+    letter-spacing:normal;
   }
   .sub{
-    font-size:15px;
-    color:#4a4b3f;
-    max-width:56ch;
+    font-size:12px;
+    color:#6b7280;
+    max-width:70ch;
+    margin-top:2px;
   }
 
   .step{
-    border:1px solid var(--rule);
-    background:#fbfaf5;
-    margin-bottom:20px;
+    border:1px solid #e5e7eb;
+    background:#f9fafb;
+    border-radius:.5rem;
+    margin-bottom:24px;
     position:relative;
   }
   .step-head{
     display:flex;
     align-items:baseline;
-    gap:12px;
-    padding:16px 20px;
-    border-bottom:1px solid var(--rule);
-    background:var(--paper-dim);
+    gap:8px;
+    padding:16px 20px 0;
+    background:transparent;
   }
   .step-num{
-    font-family:var(--mono);
-    font-size:12px;
-    color:var(--accent);
-    letter-spacing:.06em;
+    font-size:11px;
+    color:var(--afya-magenta);
+    font-weight:700;
   }
   .step-title{
-    font-family:var(--serif);
-    font-size:19px;
+    font-size:14px;
     font-weight:600;
     margin:0;
+    color:#374151;
   }
-  .step-body{padding:20px;}
+  .step-body{padding:12px 20px 20px;}
   .step.disabled{opacity:.45; pointer-events:none;}
 
   .upload-row{
     display:flex;
     align-items:center;
     gap:16px;
-    padding:14px 0;
-    border-bottom:1px dashed var(--rule);
+    padding:12px 0;
+    border-bottom:1px dashed #e5e7eb;
   }
   .upload-row:last-child{border-bottom:none;}
   .upload-label{
-    font-family:var(--mono);
-    font-size:12px;
+    font-size:11px;
     text-transform:uppercase;
-    letter-spacing:.05em;
+    letter-spacing:.04em;
+    font-weight:600;
     width:190px;
     flex-shrink:0;
-    color:#4a4b3f;
+    color:#6b7280;
   }
   .file-btn{
-    font-family:var(--sans);
     font-size:13px;
     font-weight:600;
-    padding:8px 14px;
-    background:var(--ink);
-    color:var(--paper);
+    padding:9px 16px;
+    background:var(--afya-magenta);
+    color:#fff;
     border:none;
+    border-radius:999px;
     cursor:pointer;
     flex-shrink:0;
   }
-  .file-btn:hover{background:var(--accent);}
+  .file-btn:hover{background:var(--afya-magenta-dark);}
   input[type=file]{display:none;}
   .file-status{
-    font-family:var(--mono);
     font-size:12px;
-    color:#6b6c5e;
+    color:#6b7280;
     overflow:hidden;
     text-overflow:ellipsis;
     white-space:nowrap;
   }
-  .file-status.ok{color:var(--ok); font-weight:600;}
-  .file-status.err{color:var(--accent); font-weight:600;}
+  .file-status.ok{color:#166534; font-weight:600;}
+  .file-status.err{color:var(--afya-magenta); font-weight:600;}
 
   .list-toolbar{
     display:flex;
@@ -209,7 +224,6 @@
     margin-bottom:10px;
   }
   .list-toolbar-actions{
-    font-family:var(--mono);
     font-size:11.5px;
     display:flex;
     gap:14px;
@@ -218,20 +232,20 @@
     background:none;
     border:none;
     padding:0;
-    color:var(--accent);
+    color:var(--afya-magenta);
     cursor:pointer;
-    font-family:var(--mono);
     font-size:11.5px;
+    font-weight:600;
     text-decoration:underline;
   }
-  .list-toolbar-actions button:hover{color:var(--ink);}
+  .list-toolbar-actions button:hover{color:var(--afya-magenta-dark);}
   .selected-count{
-    font-family:var(--mono);
     font-size:11.5px;
-    color:#6b6c5e;
+    color:#6b7280;
   }
   .curso-list{
-    border:1px solid var(--rule);
+    border:1px solid #e5e7eb;
+    border-radius:.5rem;
     max-height:360px;
     overflow-y:auto;
     background:#fff;
@@ -241,36 +255,37 @@
     align-items:center;
     gap:12px;
     padding:10px 14px;
-    border-bottom:1px solid var(--paper-dim);
+    border-bottom:1px solid #f3f4f6;
     cursor:pointer;
   }
   .curso-item:last-child{border-bottom:none;}
-  .curso-item:hover{background:var(--paper-dim);}
+  .curso-item:hover{background:#f9fafb;}
   .curso-item input[type=checkbox]{
     width:16px;height:16px;
-    accent-color:var(--accent);
+    accent-color:var(--afya-magenta);
     flex-shrink:0;
     cursor:pointer;
   }
   .curso-item .curso-name{
-    font-size:14px;
+    font-size:13px;
     flex:1;
+    color:#374151;
   }
-  .curso-item.no-ti .curso-name{color:#8b8b7c;}
+  .curso-item.no-ti .curso-name{color:#9ca3af;}
   .curso-item .curso-count{
-    font-family:var(--mono);
     font-size:11px;
-    color:#6b6c5e;
+    color:#9ca3af;
     flex-shrink:0;
   }
-  .curso-item.checked{background:#fbf2ea;}
+  .curso-item.checked{background:var(--afya-magenta-light);}
   .ti-badge{
-    font-family:var(--mono);
     font-size:9.5px;
-    letter-spacing:.04em;
-    color:var(--accent);
-    border:1px solid var(--accent-dim);
-    padding:1px 5px;
+    font-weight:700;
+    letter-spacing:.02em;
+    color:var(--afya-magenta);
+    border:1px solid var(--afya-magenta);
+    border-radius:999px;
+    padding:1px 7px;
     flex-shrink:0;
   }
 
@@ -278,67 +293,63 @@
     display:flex;
     gap:28px;
     margin-top:18px;
-    font-family:var(--mono);
     font-size:12px;
-    color:#4a4b3f;
+    color:#6b7280;
   }
-  .meta-row b{color:var(--ink); font-size:16px; display:block; font-family:var(--serif);}
+  .meta-row b{color:#1f2937; font-size:18px; display:block; font-weight:700;}
 
   .export-btn{
-    font-family:var(--sans);
-    font-size:15px;
+    font-size:14px;
     font-weight:700;
-    padding:14px 28px;
-    background:var(--accent);
-    color:#fff5ec;
+    padding:12px 24px;
+    background:var(--afya-magenta);
+    color:#fff;
     border:none;
+    border-radius:999px;
     cursor:pointer;
     margin-top:20px;
-    letter-spacing:.01em;
   }
-  .export-btn:hover{background:#6e2e21;}
-  .export-btn:disabled{background:var(--rule); color:#8b8b7c; cursor:not-allowed;}
+  .export-btn:hover:not(:disabled){background:var(--afya-magenta-dark);}
+  .export-btn:disabled{background:#d1d5db; color:#9ca3af; cursor:not-allowed;}
 
   table{
     width:100%;
     border-collapse:collapse;
-    margin-top:20px;
-    font-size:13px;
+    margin-top:16px;
+    font-size:12px;
   }
   th,td{
     text-align:left;
     padding:7px 10px;
-    border-bottom:1px solid var(--rule);
+    border-bottom:1px solid #e5e7eb;
     vertical-align:top;
   }
   th{
-    font-family:var(--mono);
-    font-size:10.5px;
+    font-size:10px;
     text-transform:uppercase;
-    letter-spacing:.04em;
-    color:#6b6c5e;
-    border-bottom:2px solid var(--ink);
+    letter-spacing:.03em;
+    color:#fff;
+    background:var(--afya-magenta);
   }
-  td.disc{font-weight:600;}
-  td.code{font-family:var(--mono); font-size:12px; color:var(--accent);}
-  td.ementa{color:#4a4b3f; max-width:340px;}
-  .tag-yes{color:var(--ok); font-family:var(--mono); font-size:11px;}
-  .tag-no{color:#999; font-family:var(--mono); font-size:11px;}
-  .preview-note{font-family:var(--mono); font-size:11.5px; color:#6b6c5e; margin-top:10px;}
+  td.disc{font-weight:600; color:#374151;}
+  td.code{font-size:12px; color:var(--afya-magenta); font-weight:600;}
+  td.ementa{color:#6b7280; max-width:340px;}
+  .tag-yes{color:#166534; font-size:11px; font-weight:600;}
+  .tag-no{color:#9ca3af; font-size:11px;}
+  .preview-note{font-size:11.5px; color:#6b7280; margin-top:10px;}
 
   footer{
-    margin-top:48px;
+    margin-top:32px;
     padding-top:16px;
-    border-top:1px solid var(--rule);
-    font-family:var(--mono);
+    border-top:1px solid #e5e7eb;
     font-size:11px;
-    color:#8b8b7c;
+    color:#9ca3af;
   }
 
   .log{
-    font-family:var(--mono);
-    font-size:11.5px;
-    color:var(--accent);
+    font-size:12px;
+    font-weight:500;
+    color:var(--afya-magenta);
     margin-top:10px;
     min-height:1em;
   }
@@ -415,9 +426,9 @@
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.textContent = 'Escolher Planilha de Isenção ATUAL';
-      btn.style.cssText = 'font-family:inherit;font-size:13px;font-weight:600;padding:9px 16px;background:#8a3b2a;color:#fff;border:none;border-radius:999px;cursor:pointer;flex-shrink:0;';
-      btn.addEventListener('mouseenter', function(){ btn.style.background = '#6e2e21'; });
-      btn.addEventListener('mouseleave', function(){ btn.style.background = '#8a3b2a'; });
+      btn.style.cssText = 'font-family:inherit;font-size:13px;font-weight:600;padding:9px 16px;background:#D11C5C;color:#fff;border:none;border-radius:999px;cursor:pointer;flex-shrink:0;';
+      btn.addEventListener('mouseenter', function(){ btn.style.background = '#A8154A'; });
+      btn.addEventListener('mouseleave', function(){ btn.style.background = '#D11C5C'; });
 
       var input = document.createElement('input');
       input.type = 'file';
@@ -459,9 +470,12 @@
 <div class="wrap">
 
   <header class="masthead">
-    <div class="eyebrow"><span>Registro Acadêmico</span><span id="clock"></span></div>
-    <h1>Extrator de Matrizes</h1>
-    <p class="sub">Carregue a Planilha de Isenção e o Relatório consolidado de ementas. Selecione um ou mais cursos e exporte a lista de disciplinas cruzada com as ementas disponíveis — uma aba por curso selecionado, no mesmo formato do relatório anterior.</p>
+    <div class="masthead-badge">TI</div>
+    <div>
+      <div class="eyebrow"><span>Registro Acadêmico</span><span id="clock"></span></div>
+      <h1>Extrator de Matrizes</h1>
+      <p class="sub">Carregue a Planilha de Isenção e o Relatório consolidado de ementas. Selecione um ou mais cursos e exporte a lista de disciplinas cruzada com as ementas disponíveis — uma aba por curso selecionado, no mesmo formato do relatório anterior.</p>
+    </div>
   </header>
 
   <div class="step" id="step1">
@@ -815,7 +829,7 @@ function renderPreview(selectedCursos){
   sortedSel.forEach(function(curso){
     var rows = state.dataByCurso[curso];
     var previewRows = rows.slice(0, 6);
-    html += '<h3 style="font-family:var(--serif);font-size:16px;margin:22px 0 6px;">' + curso + ' <span style="font-family:var(--mono);font-size:11px;color:#6b6c5e;">(' + rows.length + ' disciplinas)</span></h3>';
+    html += '<h3 style="font-size:14px;font-weight:700;color:#374151;margin:22px 0 6px;">' + curso + ' <span style="font-size:11px;font-weight:400;color:#9ca3af;">(' + rows.length + ' disciplinas)</span></h3>';
     html += '<table><thead><tr><th>Disciplina</th><th>Código</th><th>Matriz</th><th>Período</th><th>Ementa</th><th>Match</th></tr></thead><tbody>';
     previewRows.forEach(function(r){
       html += '<tr>';
@@ -1600,6 +1614,29 @@ document.getElementById('exportBtn').addEventListener('click', function(){
             itemsRenderizados = [];
             const apIndicesUsados = new Set();
 
+            // Reflete o estado (habilitado/desabilitado) do botão "Aplicar" na
+            // visibilidade do card: sugestão sem ação possível sai da lista;
+            // se o botão voltar a ficar habilitável, o card reaparece.
+            function atualizarVisibilidadeItem(info) {
+                info.item.style.display = info.btnAplicar.disabled ? 'none' : '';
+                atualizarMensagemPendencias();
+            }
+            function atualizarMensagemPendencias() {
+                const algumVisivel = itemsRenderizados.some(info => info.btnAplicar && !info.btnAplicar.disabled);
+                let aviso = document.getElementById('modalSemPendencias');
+                if (sugestoesAtuais.length > 0 && !algumVisivel) {
+                    if (!aviso) {
+                        aviso = document.createElement('p');
+                        aviso.id = 'modalSemPendencias';
+                        aviso.className = 'text-sm text-gray-400 text-center py-6';
+                        aviso.textContent = 'Todas as sugestões desta matriz já foram tratadas (aplicadas, ignoradas ou substituídas).';
+                        lista.appendChild(aviso);
+                    }
+                } else if (aviso) {
+                    aviso.remove();
+                }
+            }
+
             function bloquearOutrasComMesmaAprovada(apIndex, idxAtual) {
                 apIndicesUsados.add(apIndex);
                 itemsRenderizados.forEach((info, i) => {
@@ -1608,6 +1645,7 @@ document.getElementById('exportBtn').addEventListener('click', function(){
                         info.btnAplicar.disabled = true;
                         info.btnAplicar.classList.add('opacity-50', 'cursor-not-allowed');
                         info.btnAplicar.title = 'Esta disciplina aprovada já foi usada em outra equivalência aplicada nesta matriz.';
+                        atualizarVisibilidadeItem(info);
                     }
                 });
             }
@@ -1654,17 +1692,20 @@ document.getElementById('exportBtn').addEventListener('click', function(){
 
                 const btnAplicar = item.querySelector('.modal-aplicar');
                 const btnIgnorar = item.querySelector('.modal-ignorar');
-                itemsRenderizados.push({ sug, item, btnAplicar, btnIgnorar });
+                const info = { sug, item, btnAplicar, btnIgnorar };
+                itemsRenderizados.push(info);
 
                 btnAplicar.addEventListener('click', () => {
                     aplicarSugestaoNaLinha(sug);
                     item.classList.add('opacity-40');
                     item.querySelectorAll('button').forEach(b => b.disabled = true);
                     bloquearOutrasComMesmaAprovada(sug.apIndex, idx);
+                    atualizarVisibilidadeItem(info);
                 });
                 btnIgnorar.addEventListener('click', () => {
                     item.classList.add('opacity-40');
                     item.querySelectorAll('button').forEach(b => b.disabled = true);
+                    atualizarVisibilidadeItem(info);
                 });
 
                 lista.appendChild(item);
