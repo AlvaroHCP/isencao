@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Extrator de Matrizes</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdn.tailwindcss.com"></script>
+<!-- Tailwind Play CDN removido: as classes utilitárias usadas no documento
+     são fornecidas por uma folha de estilo estática logo abaixo, evitando o
+     aviso "cdn.tailwindcss.com should not be used in production". -->
 <style>
   :root{
     --afya-magenta: #D11C5C;
@@ -44,26 +46,27 @@
   .site-tabs{
     max-width:1280px;
     margin:0 auto;
-    padding:18px 24px 0;
+    padding:24px 24px 0;
     display:flex;
     gap:8px;
   }
   .site-tab-btn{
-    font-family:'IBM Plex Mono', 'Courier New', monospace;
-    font-size:12px;
-    letter-spacing:.04em;
-    text-transform:uppercase;
-    padding:10px 18px;
-    border:1px solid #c9c2ac;
+    font-size:13px;
+    font-weight:600;
+    padding:10px 20px;
+    border:1px solid #e5e7eb;
     border-bottom:none;
-    background:#e7e2d3;
-    color:#4a4b3f;
+    border-radius:.5rem .5rem 0 0;
+    background:#f3f4f6;
+    color:#6b7280;
     cursor:pointer;
   }
+  .site-tab-btn:hover{color:var(--afya-magenta);}
   .site-tab-btn.active{
-    background:#f2efe6;
-    color:#14181f;
+    background:#fff;
+    color:var(--afya-magenta);
     font-weight:700;
+    box-shadow:0 -1px 0 0 #fff inset;
   }
   .site-tab-panel{ display:none; }
   .site-tab-panel.active{ display:block; }
@@ -96,8 +99,8 @@
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
-    background:var(--paper);
-    color:var(--ink);
+    background:#f3f4f6;
+    color:#1f2937;
     font-family:var(--sans);
     line-height:1.5;
     min-height:100vh;
@@ -353,6 +356,161 @@
     margin-top:10px;
     min-height:1em;
   }
+</style>
+<style>
+  /* ------------------------------------------------------------------------
+     Utilitários estáticos equivalentes às classes Tailwind usadas neste
+     documento (substitui o Tailwind Play CDN, que não deve ser usado em
+     produção). Cobre apenas as classes efetivamente presentes no HTML/JS. */
+
+  /* Display / layout */
+  .block{display:block;}
+  .flex{display:flex;}
+  .flex-col{flex-direction:column;}
+  .flex-wrap{flex-wrap:wrap;}
+  .grid{display:grid;}
+  .grid-cols-1{grid-template-columns:repeat(1,minmax(0,1fr));}
+  .grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .inline-block{display:inline-block;}
+  .hidden{display:none;}
+  .relative{position:relative;}
+  .fixed{position:fixed;}
+  .inset-0{top:0;right:0;bottom:0;left:0;}
+  .z-50{z-index:50;}
+  .overflow-x-auto{overflow-x:auto;}
+  .overflow-y-auto{overflow-y:auto;}
+  .min-w-full{min-width:100%;}
+  .max-w-3xl{max-width:48rem;}
+  .max-w-7xl{max-width:80rem;}
+  .max-w-\[420px\]{max-width:420px;}
+  .min-w-\[220px\]{min-width:220px;}
+  .min-w-\[260px\]{min-width:260px;}
+  .max-h-28{max-height:7rem;}
+  .max-h-\[65vh\]{max-height:65vh;}
+  .max-h-\[85vh\]{max-height:85vh;}
+  .w-full{width:100%;}
+  .w-10{width:2.5rem;}
+  .w-4{width:1rem;}
+  .h-10{height:2.5rem;}
+  .h-4{height:1rem;}
+  .flex-1{flex:1 1 0%;}
+  .flex-shrink-0{flex-shrink:0;}
+  .mx-auto{margin-left:auto;margin-right:auto;}
+  .my-1{margin-top:.25rem;margin-bottom:.25rem;}
+  .my-6{margin-top:1.5rem;margin-bottom:1.5rem;}
+
+  /* Flexbox / grid alignment */
+  .items-center{align-items:center;}
+  .items-start{align-items:flex-start;}
+  .justify-between{justify-content:space-between;}
+  .justify-center{justify-content:center;}
+  .space-y-3 > * + *{margin-top:.75rem;}
+  .gap-1{gap:.25rem;}
+  .gap-2{gap:.5rem;}
+  .gap-3{gap:.75rem;}
+  .gap-4{gap:1rem;}
+
+  /* Spacing */
+  .p-1{padding:.25rem;}
+  .p-1\.5{padding:.375rem;}
+  .p-2{padding:.5rem;}
+  .p-3{padding:.75rem;}
+  .p-4{padding:1rem;}
+  .p-6{padding:1.5rem;}
+  .p-8{padding:2rem;}
+  .px-2{padding-left:.5rem;padding-right:.5rem;}
+  .px-3{padding-left:.75rem;padding-right:.75rem;}
+  .px-4{padding-left:1rem;padding-right:1rem;}
+  .px-6{padding-left:1.5rem;padding-right:1.5rem;}
+  .py-0\.5{padding-top:.125rem;padding-bottom:.125rem;}
+  .py-1\.5{padding-top:.375rem;padding-bottom:.375rem;}
+  .py-2{padding-top:.5rem;padding-bottom:.5rem;}
+  .py-6{padding-top:1.5rem;padding-bottom:1.5rem;}
+  .py-8{padding-top:2rem;padding-bottom:2rem;}
+  .pb-4{padding-bottom:1rem;}
+  .pt-3{padding-top:.75rem;}
+  .mb-0\.5{margin-bottom:.125rem;}
+  .mb-1{margin-bottom:.25rem;}
+  .mb-2{margin-bottom:.5rem;}
+  .mb-3{margin-bottom:.75rem;}
+  .mb-4{margin-bottom:1rem;}
+  .mb-6{margin-bottom:1.5rem;}
+  .mb-8{margin-bottom:2rem;}
+  .mt-1{margin-top:.25rem;}
+  .mt-2{margin-top:.5rem;}
+  .mt-3{margin-top:.75rem;}
+
+  @media (min-width:768px){
+    .md\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .md\:grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr));}
+    .md\:p-8{padding:2rem;}
+  }
+
+  /* Borders / radius / shadow */
+  .border{border-width:1px;border-style:solid;border-color:#e5e7eb;}
+  .border-b{border-bottom-width:1px;border-bottom-style:solid;border-color:#e5e7eb;}
+  .border-t{border-top-width:1px;border-top-style:solid;border-color:#e5e7eb;}
+  .border-gray-100{border-color:#f3f4f6;}
+  .border-gray-200{border-color:#e5e7eb;}
+  .border-gray-300{border-color:#d1d5db;}
+  .border-\[color\:var\(--afya-magenta\)\]{border-color:var(--afya-magenta);}
+  .rounded{border-radius:.25rem;}
+  .rounded-full{border-radius:9999px;}
+  .rounded-lg{border-radius:.5rem;}
+  .rounded-xl{border-radius:.75rem;}
+  .rounded-b-xl{border-bottom-left-radius:.75rem;border-bottom-right-radius:.75rem;}
+  .shadow-sm{box-shadow:0 1px 2px 0 rgba(0,0,0,.05);}
+  .shadow-lg{box-shadow:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -4px rgba(0,0,0,.1);}
+
+  /* Backgrounds / text colors */
+  .bg-white{background-color:#fff;}
+  .bg-gray-50{background-color:#f9fafb;}
+  .bg-gray-100{background-color:#f3f4f6;}
+  .bg-black\/40{background-color:rgba(0,0,0,.4);}
+  .bg-\[\#D11C5C\]{background-color:#D11C5C;}
+  .bg-\[color\:var\(--afya-magenta\)\]{background-color:var(--afya-magenta);}
+  .text-white{color:#fff;}
+  .text-gray-400{color:#9ca3af;}
+  .text-gray-500{color:#6b7280;}
+  .text-gray-600{color:#4b5563;}
+  .text-gray-700{color:#374151;}
+  .text-gray-800{color:#1f2937;}
+  .text-red-600{color:#dc2626;}
+  .text-\[\#D11C5C\]{color:#D11C5C;}
+  .text-\[color\:var\(--afya-magenta\)\]{color:var(--afya-magenta);}
+  .accent-\[\#D11C5C\]{accent-color:#D11C5C;}
+
+  /* Typography */
+  .text-xs{font-size:.75rem;line-height:1rem;}
+  .text-sm{font-size:.875rem;line-height:1.25rem;}
+  .text-lg{font-size:1.125rem;line-height:1.75rem;}
+  .text-2xl{font-size:1.5rem;line-height:2rem;}
+  .text-\[10px\]{font-size:10px;}
+  .text-\[11px\]{font-size:11px;}
+  .font-medium{font-weight:500;}
+  .font-semibold{font-weight:600;}
+  .font-bold{font-weight:700;}
+  .uppercase{text-transform:uppercase;}
+  .italic{font-style:italic;}
+  .whitespace-nowrap{white-space:nowrap;}
+  .leading-none{line-height:1;}
+  .text-center{text-align:center;}
+
+  /* Interactivity / states */
+  .cursor-pointer{cursor:pointer;}
+  .cursor-not-allowed{cursor:not-allowed;}
+  .hover\:text-gray-700:hover{color:#374151;}
+  button:disabled.disabled\:bg-gray-300,
+  .disabled\:bg-gray-300:disabled{background-color:#d1d5db;}
+  button:disabled.disabled\:border-gray-300,
+  .disabled\:border-gray-300:disabled{border-color:#d1d5db;}
+  button:disabled.disabled\:text-gray-400,
+  .disabled\:text-gray-400:disabled{color:#9ca3af;}
+  button:disabled.disabled\:cursor-not-allowed,
+  .disabled\:cursor-not-allowed:disabled{cursor:not-allowed;}
+
+  /* Flex utility used only on the tab-2 outer modal wrapper when visible */
+  #modalSugestoes.flex{display:flex;}
 </style>
 </head>
 <body>
@@ -1672,7 +1830,13 @@ document.getElementById('exportBtn').addEventListener('click', function(){
                 }
             });
 
-            document.getElementById('btnSugerir').disabled = sugestoesAtuais.length === 0;
+            // O botão de sugestões permanece habilitado sempre que houver
+            // disciplinas aprovadas carregadas — mesmo sem o Relatório
+            // consolidado (nesse caso a comparação usa só o nome das
+            // disciplinas) e mesmo que, nesta matriz específica, nenhuma
+            // equivalência tenha passado do limiar. O modal mostra a
+            // mensagem apropriada em cada caso.
+            document.getElementById('btnSugerir').disabled = aprovadas.length === 0;
         }
 
         // Encontra, na lista de instituições válidas (aba INSTITUIÇÕES), a que melhor
