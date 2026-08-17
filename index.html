@@ -476,6 +476,8 @@
   .text-gray-700{color:#374151;}
   .text-gray-800{color:#1f2937;}
   .text-red-600{color:#dc2626;}
+  .text-red-500{color:#ef4444;}
+  .border-red-300{border-color:#fca5a5;}
   .text-\[\#D11C5C\]{color:#D11C5C;}
   .text-\[color\:var\(--afya-magenta\)\]{color:var(--afya-magenta);}
   .accent-\[\#D11C5C\]{accent-color:#D11C5C;}
@@ -1384,7 +1386,7 @@ document.getElementById('exportBtn').addEventListener('click', function(){
         let profMap = new Map();  // CURSO (upper) -> matricula coordenador
         let ementasIndex = null;  // nkey (DISCIPLINA normalizada) -> {ementa, origem, fonte, disciplinaArquivo}, vindo do Relatório consolidado (aba Extrator de Matrizes)
         let aprovadas = [];       // Disciplinas da "Planilha de Disciplinas Aprovadas": {ies, disciplina, codigo, ch, creditos, anoSemestre, nota, ementa}
-        let sugestoesAtuais = []; // Sugestões calculadas para a matriz de destino atual: {coddisc, disciplinaDestino, aprovada, score, base}
+        let sugestoesAtuais = []; // Um item por disciplina APROVADA com equivalência encontrada: {apIndex, aprovada, coddisc, disciplinaDestino, periodo, score, base, ementaDestino, ementaOrigem}
 
         const norm = v => (v === undefined || v === null) ? '' : String(v).trim();
         const upper = v => norm(v).toUpperCase();
@@ -1788,19 +1790,24 @@ document.getElementById('exportBtn').addEventListener('click', function(){
         // ---------- Sugestão de equivalências (Planilha de Disciplinas Aprovadas x matriz de destino) ----------
         function calcularSugestoes() {
             sugestoesAtuais = [];
-            const linhas = [...document.querySelectorAll('#tbodyDisciplinas tr[data-coddisc]')];
+            const linhasDestino = [...document.querySelectorAll('#tbodyDisciplinas tr[data-coddisc]')].map(tr => ({
+                coddisc: tr.dataset.coddisc,
+                disciplina: tr.dataset.disciplina,
+                periodo: tr.dataset.periodo
+            }));
             const limiarEmenta = limiarEmentaAtual();
             const limiarNome = limiarNomeAtual();
 
-            linhas.forEach(tr => {
-                const coddisc = tr.dataset.coddisc;
-                const disciplinaDestino = tr.dataset.disciplina;
-                const chaveEmenta = upper(disciplinaDestino).replace(/\s+/g, ' ');
-                const matchEmenta = ementasIndex ? ementasIndex[chaveEmenta] : null;
-                const ementaDestino = matchEmenta ? matchEmenta.ementa : '';
-
+            // Um card por disciplina APROVADA (não mais por disciplina de destino):
+            // para cada disciplina lida da Planilha de Disciplinas Aprovadas,
+            // calcula-se a disciplina da matriz de destino mais equivalente.
+            aprovadas.forEach((ap, apIndex) => {
                 let melhor = null;
-                aprovadas.forEach(ap => {
+                linhasDestino.forEach(ld => {
+                    const chaveEmenta = upper(ld.disciplina).replace(/\s+/g, ' ');
+                    const matchEmenta = ementasIndex ? ementasIndex[chaveEmenta] : null;
+                    const ementaDestino = matchEmenta ? matchEmenta.ementa : '';
+
                     const ambosTemEmenta = ementaDestino && ap.ementa;
                     let score, base, limiar;
                     if (ambosTemEmenta) {
@@ -1808,26 +1815,42 @@ document.getElementById('exportBtn').addEventListener('click', function(){
                         base = 'ementa';
                         limiar = limiarEmenta;
                     } else {
-                        score = similaridadeDice(disciplinaDestino, ap.disciplina);
+                        score = similaridadeDice(ld.disciplina, ap.disciplina);
                         base = 'nome';
                         limiar = limiarNome;
                     }
                     if (score >= limiar && (!melhor || score > melhor.score)) {
-                        melhor = { aprovada: ap, score, base };
+                        melhor = { linhaDestino: ld, score, base, ementaDestino };
                     }
                 });
 
                 if (melhor) {
                     sugestoesAtuais.push({
-                        coddisc,
-                        disciplinaDestino,
-                        periodo: tr.dataset.periodo,
-                        aprovada: melhor.aprovada,
-                        apIndex: aprovadas.indexOf(melhor.aprovada),
+                        apIndex,
+                        aprovada: ap,
+                        coddisc: melhor.linhaDestino.coddisc,
+                        disciplinaDestino: melhor.linhaDestino.disciplina,
+                        periodo: melhor.linhaDestino.periodo,
                         score: melhor.score,
                         base: melhor.base,
-                        ementaDestino: ementaDestino,
-                        ementaOrigem: melhor.aprovada.ementa
+                        ementaDestino: melhor.ementaDestino,
+                        ementaOrigem: ap.ementa
+                    });
+                } else {
+                    // Nenhuma equivalência automática passou do limiar — a
+                    // disciplina aprovada ainda assim entra na lista, sem
+                    // destino pré-selecionado, para alocação manual via
+                    // dropdown no modal.
+                    sugestoesAtuais.push({
+                        apIndex,
+                        aprovada: ap,
+                        coddisc: null,
+                        disciplinaDestino: null,
+                        periodo: null,
+                        score: null,
+                        base: null,
+                        ementaDestino: '',
+                        ementaOrigem: ap.ementa
                     });
                 }
             });
@@ -1874,13 +1897,21 @@ document.getElementById('exportBtn').addEventListener('click', function(){
             return true;
         }
 
-        let itemsRenderizados = []; // preenchido a cada renderização do modal: {sug, item, btnAplicar, btnIgnorar}
+        let itemsRenderizados = []; // preenchido a cada renderização do modal: {sug, item, btnAplicar, btnIgnorar, coddiscAtual}
 
         function renderizarModalSugestoes() {
             const lista = document.getElementById('modalLista');
             lista.innerHTML = '';
             itemsRenderizados = [];
-            const apIndicesUsados = new Set();
+            const coddiscsUsados = new Set();
+
+            // Todas as disciplinas da matriz de destino atualmente carregada —
+            // usadas para popular o dropdown de disciplina destino em cada card.
+            const linhasDestino = [...document.querySelectorAll('#tbodyDisciplinas tr[data-coddisc]')].map(tr => ({
+                coddisc: tr.dataset.coddisc,
+                disciplina: tr.dataset.disciplina,
+                periodo: tr.dataset.periodo
+            }));
 
             // Reflete o estado (habilitado/desabilitado) do botão "Aplicar" na
             // visibilidade do card: sugestão sem ação possível sai da lista;
@@ -1905,14 +1936,19 @@ document.getElementById('exportBtn').addEventListener('click', function(){
                 }
             }
 
-            function bloquearOutrasComMesmaAprovada(apIndex, idxAtual) {
-                apIndicesUsados.add(apIndex);
+            // Como cada card já representa uma disciplina APROVADA única, o
+            // risco de duplicidade agora é do lado do DESTINO: duas
+            // disciplinas aprovadas diferentes apontando para a mesma
+            // disciplina da matriz. Ao aplicar uma, bloqueia "Aplicar" nas
+            // demais que estejam com o mesmo destino selecionado.
+            function bloquearOutrasComMesmoDestino(coddisc, idxAtual) {
+                coddiscsUsados.add(coddisc);
                 itemsRenderizados.forEach((info, i) => {
                     if (i === idxAtual) return;
-                    if (info.sug.apIndex === apIndex && !info.btnAplicar.disabled) {
+                    if (info.coddiscAtual === coddisc && !info.btnAplicar.disabled) {
                         info.btnAplicar.disabled = true;
                         info.btnAplicar.classList.add('opacity-50', 'cursor-not-allowed');
-                        info.btnAplicar.title = 'Esta disciplina aprovada já foi usada em outra equivalência aplicada nesta matriz.';
+                        info.btnAplicar.title = 'Esta disciplina da matriz de destino já recebeu outra equivalência aplicada.';
                         atualizarVisibilidadeItem(info);
                     }
                 });
@@ -1927,19 +1963,33 @@ document.getElementById('exportBtn').addEventListener('click', function(){
                 item.className = 'border rounded-lg p-3';
                 item.dataset.idx = idx;
 
-                const pct = Math.round(sug.score * 100);
+                const ap = sug.aprovada;
+                const temSugestaoAutomatica = !!sug.coddisc;
+                const pct = temSugestaoAutomatica ? Math.round(sug.score * 100) : null;
                 const baseLabel = sug.base === 'ementa' ? 'ementa' : 'nome da disciplina';
+                const badgeInicial = temSugestaoAutomatica
+                    ? `${pct}% de semelhança · baseado em ${baseLabel}`
+                    : 'Nenhuma equivalência automática encontrada — selecione a disciplina de destino manualmente';
                 const ementaDestinoHtml = sug.ementaDestino ? escapeHtml(sug.ementaDestino) : '<span class="italic text-gray-400">Sem ementa cadastrada</span>';
                 const ementaOrigemHtml = sug.ementaOrigem ? escapeHtml(sug.ementaOrigem) : '<span class="italic text-gray-400">Sem ementa cadastrada</span>';
+                const campoOuTraco = v => (v !== undefined && v !== null && v !== '' && v !== 'não informado') ? escapeHtml(v) : '-';
 
                 item.innerHTML = `
                     <div class="flex items-start justify-between gap-3">
                         <div class="text-xs flex-1">
-                            <div class="font-semibold text-gray-800">${sug.periodo ? sug.periodo + ' — ' : ''}${sug.disciplinaDestino}</div>
-                            <div class="text-gray-500 my-1">⇄ equivalência sugerida com:</div>
-                            <div class="font-semibold text-[color:var(--afya-magenta)]">${sug.aprovada.disciplina}</div>
-                            <div class="text-gray-500">${sug.aprovada.ies || 'IES não informada'} · ${sug.aprovada.anoSemestre || '-'}</div>
-                            <div class="mt-1 inline-block text-[10px] px-2 py-0.5 rounded-full border border-gray-300 text-gray-600">${pct}% de semelhança · baseado em ${baseLabel}</div>
+                            <div class="font-semibold text-gray-800">${escapeHtml(ap.disciplina)}</div>
+                            <div class="text-gray-500">${escapeHtml(ap.ies || 'IES não informada')}</div>
+                            <div class="grid grid-cols-2 gap-x-3 gap-y-0.5 mt-1.5 mb-1.5 text-gray-600">
+                                <div>Código: <span class="font-medium text-gray-800">${campoOuTraco(ap.codigo)}</span></div>
+                                <div>CH origem: <span class="font-medium text-gray-800">${campoOuTraco(ap.ch)}</span></div>
+                                <div>Créditos: <span class="font-medium text-gray-800">${campoOuTraco(ap.creditos)}</span></div>
+                                <div>Ano/Sem: <span class="font-medium text-gray-800">${campoOuTraco(ap.anoSemestre)}</span></div>
+                                <div>Nota: <span class="font-medium text-gray-800">${campoOuTraco(ap.nota)}</span></div>
+                            </div>
+                            <div class="text-gray-500 my-1">⇄ equivalente na matriz de destino:</div>
+                            <label class="block text-[10px] font-semibold text-gray-500 mb-1 uppercase">Disciplina da matriz de destino</label>
+                            <select class="modal-destino-select w-full border rounded text-xs p-1.5 mb-1"></select>
+                            <div class="modal-badge mt-1 inline-block text-[10px] px-2 py-0.5 rounded-full border border-gray-300 text-gray-600">${badgeInicial}</div>
                         </div>
                         <div class="flex flex-col gap-1 flex-shrink-0">
                             <button type="button" class="modal-aplicar text-xs font-semibold py-1.5 px-3 rounded-full btn-magenta text-white">Aplicar</button>
@@ -1949,7 +1999,7 @@ document.getElementById('exportBtn').addEventListener('click', function(){
                     <div class="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-gray-100">
                         <div>
                             <div class="text-[10px] font-semibold text-gray-500 mb-0.5 uppercase">Ementa — disciplina do destino</div>
-                            <div class="text-[11px] text-gray-700 border rounded p-1.5 bg-gray-50 max-h-28 overflow-y-auto">${ementaDestinoHtml}</div>
+                            <div class="modal-ementa-destino text-[11px] text-gray-700 border rounded p-1.5 bg-gray-50 max-h-28 overflow-y-auto">${ementaDestinoHtml}</div>
                         </div>
                         <div>
                             <div class="text-[10px] font-semibold text-gray-500 mb-0.5 uppercase">Ementa — disciplina aprovada</div>
@@ -1958,26 +2008,82 @@ document.getElementById('exportBtn').addEventListener('click', function(){
                     </div>
                 `;
 
+                // Popula o dropdown com TODAS as disciplinas da matriz de destino,
+                // pré-selecionando a equivalência calculada como mais próxima —
+                // ou, se nenhuma passou do limiar, um placeholder pedindo escolha
+                // manual (a disciplina aprovada continua na lista mesmo assim).
+                const selectDestino = item.querySelector('.modal-destino-select');
+                if (!temSugestaoAutomatica) {
+                    const optPlaceholder = document.createElement('option');
+                    optPlaceholder.value = '';
+                    optPlaceholder.textContent = 'Selecione a disciplina equivalente…';
+                    optPlaceholder.disabled = true;
+                    optPlaceholder.selected = true;
+                    selectDestino.appendChild(optPlaceholder);
+                }
+                linhasDestino.forEach(ld => {
+                    const opt = document.createElement('option');
+                    opt.value = ld.coddisc;
+                    opt.textContent = (ld.periodo ? ld.periodo + ' — ' : '') + ld.disciplina;
+                    if (ld.coddisc === sug.coddisc) opt.selected = true;
+                    selectDestino.appendChild(opt);
+                });
+
                 const btnAplicar = item.querySelector('.modal-aplicar');
                 const btnIgnorar = item.querySelector('.modal-ignorar');
-                const info = { sug, item, btnAplicar, btnIgnorar };
+                const badgeEl = item.querySelector('.modal-badge');
+                const ementaDestinoEl = item.querySelector('.modal-ementa-destino');
+                const info = { sug, item, btnAplicar, btnIgnorar, coddiscAtual: sug.coddisc || null };
                 itemsRenderizados.push(info);
+
+                // Ao trocar a disciplina de destino no dropdown, recalcula a
+                // comparação (ementa se ambas tiverem, senão nome) para o NOVO
+                // par e atualiza o card — a aplicação passa a usar essa nova
+                // disciplina de destino, inclusive para preencher CH Origem,
+                // Créditos, Ano/Sem, Nota etc. na linha correta da matriz.
+                selectDestino.addEventListener('change', () => {
+                    const novaLinha = linhasDestino.find(ld => ld.coddisc === selectDestino.value);
+                    if (!novaLinha) { info.coddiscAtual = null; return; }
+                    info.coddiscAtual = novaLinha.coddisc;
+
+                    const chave = upper(novaLinha.disciplina).replace(/\s+/g, ' ');
+                    const matchEmenta = ementasIndex ? ementasIndex[chave] : null;
+                    const novaEmentaDestino = matchEmenta ? matchEmenta.ementa : '';
+
+                    let novoScore, novaBase;
+                    if (novaEmentaDestino && info.sug.aprovada.ementa) {
+                        novoScore = similaridadeConceitualEmentas(novaEmentaDestino, info.sug.aprovada.ementa);
+                        novaBase = 'ementa';
+                    } else {
+                        novoScore = similaridadeDice(novaLinha.disciplina, info.sug.aprovada.disciplina);
+                        novaBase = 'nome';
+                    }
+
+                    badgeEl.textContent = `${Math.round(novoScore * 100)}% de semelhança · baseado em ${novaBase === 'ementa' ? 'ementa' : 'nome da disciplina'} (seleção manual)`;
+                    ementaDestinoEl.innerHTML = novaEmentaDestino ? escapeHtml(novaEmentaDestino) : '<span class="italic text-gray-400">Sem ementa cadastrada</span>';
+                });
 
                 btnAplicar.addEventListener('click', () => {
                     const alvo = itemsRenderizados[idx];
-                    aplicarSugestaoNaLinha(alvo.sug);
+                    if (!alvo.coddiscAtual) {
+                        badgeEl.textContent = 'Selecione uma disciplina de destino no dropdown acima antes de aplicar.';
+                        badgeEl.classList.add('border-red-300', 'text-red-500');
+                        return;
+                    }
+                    const sugEfetiva = Object.assign({}, alvo.sug, { coddisc: alvo.coddiscAtual });
+                    aplicarSugestaoNaLinha(sugEfetiva);
                     alvo.item.classList.add('opacity-40');
-                    alvo.item.querySelectorAll('button').forEach(b => b.disabled = true);
-                    bloquearOutrasComMesmaAprovada(alvo.sug.apIndex, idx);
+                    alvo.item.querySelectorAll('button, select').forEach(b => b.disabled = true);
+                    bloquearOutrasComMesmoDestino(alvo.coddiscAtual, idx);
                     atualizarVisibilidadeItem(alvo);
                 });
                 btnIgnorar.addEventListener('click', () => {
                     // Age SOMENTE sobre este card (índice desta sugestão específica),
                     // nunca sobre outros cards — mesmo que a disciplina de destino
-                    // tenha o mesmo nome em mais de uma sugestão da lista.
+                    // ou a disciplina aprovada tenham nomes iguais em outro card.
                     const alvo = itemsRenderizados[idx];
                     alvo.item.classList.add('opacity-40');
-                    alvo.item.querySelectorAll('button').forEach(b => b.disabled = true);
+                    alvo.item.querySelectorAll('button, select').forEach(b => b.disabled = true);
                     atualizarVisibilidadeItem(alvo);
                 });
 
