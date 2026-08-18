@@ -381,13 +381,16 @@
   .overflow-y-auto{overflow-y:auto;}
   .min-w-full{min-width:100%;}
   .max-w-3xl{max-width:48rem;}
+  .max-w-5xl{max-width:64rem;}
   .max-w-7xl{max-width:80rem;}
   .max-w-\[420px\]{max-width:420px;}
   .min-w-\[220px\]{min-width:220px;}
   .min-w-\[260px\]{min-width:260px;}
   .max-h-28{max-height:7rem;}
+  .max-h-72{max-height:18rem;}
   .max-h-\[65vh\]{max-height:65vh;}
   .max-h-\[85vh\]{max-height:85vh;}
+  .max-h-\[90vh\]{max-height:90vh;}
   .w-full{width:100%;}
   .w-10{width:2.5rem;}
   .w-4{width:1rem;}
@@ -404,11 +407,16 @@
   .items-start{align-items:flex-start;}
   .justify-between{justify-content:space-between;}
   .justify-center{justify-content:center;}
+  .justify-end{justify-content:flex-end;}
   .space-y-3 > * + *{margin-top:.75rem;}
+  .space-y-1\.5 > * + *{margin-top:.375rem;}
   .gap-1{gap:.25rem;}
   .gap-2{gap:.5rem;}
   .gap-3{gap:.75rem;}
   .gap-4{gap:1rem;}
+  .gap-6{gap:1.5rem;}
+  .gap-x-3{column-gap:.75rem;}
+  .gap-y-0\.5{row-gap:.125rem;}
 
   /* Spacing */
   .p-1{padding:.25rem;}
@@ -431,14 +439,18 @@
   .pt-3{padding-top:.75rem;}
   .mb-0\.5{margin-bottom:.125rem;}
   .mb-1{margin-bottom:.25rem;}
+  .mb-1\.5{margin-bottom:.375rem;}
   .mb-2{margin-bottom:.5rem;}
   .mb-3{margin-bottom:.75rem;}
   .mb-4{margin-bottom:1rem;}
   .mb-6{margin-bottom:1.5rem;}
   .mb-8{margin-bottom:2rem;}
   .mt-1{margin-top:.25rem;}
+  .mt-1\.5{margin-top:.375rem;}
   .mt-2{margin-top:.5rem;}
   .mt-3{margin-top:.75rem;}
+  .ring-2{box-shadow:0 0 0 2px var(--tw-ring-color, rgba(59,130,246,.5));}
+  .ring-red-400{--tw-ring-color:#f87171; box-shadow:0 0 0 2px #f87171;}
 
   @media (min-width:768px){
     .md\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr));}
@@ -773,6 +785,11 @@
       </div>
       <div class="curso-list" id="cursoList"></div>
       <div class="preview-note">Todos os cursos encontrados na aba OFERTAS aparecem aqui. Marque quantos quiser para exportar.</div>
+
+      <div style="margin-top:20px; padding-top:16px; border-top:1px dashed #e5e7eb;">
+        <button type="button" id="btnCompararMatrizes" class="export-btn" style="margin-top:0; background:#374151;" disabled>Comparar Matrizes de Dois Cursos</button>
+        <p class="preview-note">Escolha dois cursos e suas matrizes para montar manualmente pares de disciplinas equivalentes entre eles.</p>
+      </div>
     </div>
   </div>
 
@@ -996,6 +1013,7 @@ function tryProcess(){
     renderCursoList();
 
     document.getElementById('step2').classList.remove('disabled');
+    document.getElementById('btnCompararMatrizes').disabled = false;
     var tiCount = state.cursosFound.filter(function(c){ return TARGET_COURSES.indexOf(c) !== -1; }).length;
     log1.textContent = temRelatorio
       ? ('Planilhas carregadas · ' + state.cursosFound.length + ' cursos identificados (' + tiCount + ' de TI) · ementas cruzadas com o Relatório consolidado.')
@@ -1151,14 +1169,17 @@ window.RelatorioUploaderComponent.onLoad(function(wb, origemLabel){
   state.relatorioWB = wb;
   tryProcess();
 
-  if(window.IsencaoAnalyzer && typeof window.IsencaoAnalyzer.loadEmentas === 'function'){
-    try{
-      var lookupsParaIsencao = buildLookups(wb);
-      var indiceEmentas = buildEmentasIndexParaIsencao(lookupsParaIsencao);
+  try{
+    var lookupsParaIsencao = buildLookups(wb);
+    var indiceEmentas = buildEmentasIndexParaIsencao(lookupsParaIsencao);
+    // Guarda também numa variável global para o modal "Comparar Matrizes de
+    // Dois Cursos" (nesta mesma aba) poder buscar ementas ao exportar pares.
+    window.ementasIndexCompartilhado = indiceEmentas;
+    if(window.IsencaoAnalyzer && typeof window.IsencaoAnalyzer.loadEmentas === 'function'){
       window.IsencaoAnalyzer.loadEmentas(indiceEmentas, origemLabel);
-    }catch(e){
-      // Se o Relatório não tiver as abas esperadas, apenas não compartilha ementas (não trava nenhuma aba).
     }
+  }catch(e){
+    // Se o Relatório não tiver as abas esperadas, apenas não compartilha ementas (não trava nenhuma aba).
   }
 });
 
@@ -1219,6 +1240,384 @@ document.getElementById('exportBtn').addEventListener('click', function(){
   XLSX.writeFile(wb, fname);
 });
 </script>
+
+<!-- ===================== Comparar Matrizes de Dois Cursos ===================== -->
+<div id="modalCompararStep1" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4">
+  <div class="bg-white rounded-xl shadow-lg max-w-3xl w-full max-h-[85vh] flex flex-col">
+    <div class="flex items-center justify-between p-4 border-b border-gray-200">
+      <h2 class="text-lg font-bold text-gray-800">Comparar Matrizes de Dois Cursos</h2>
+      <button type="button" id="cmpStep1Fechar" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
+    </div>
+    <p class="px-4 pt-3 text-xs text-gray-600">Escolha o curso e a matriz de origem e o curso e a matriz de destino. O mesmo processo de seleção usado na aba "Analisador de Isenção de Disciplinas".</p>
+    <div class="p-4 overflow-y-auto flex-1">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <div class="text-xs font-semibold text-gray-700 mb-2 uppercase">Curso de origem</div>
+          <label class="block text-[11px] font-semibold text-gray-500 mb-1">Curso</label>
+          <select id="cmpCursoOrigem" class="border p-2 rounded w-full text-sm mb-3"><option value="">Selecione o curso</option></select>
+          <label class="block text-[11px] font-semibold text-gray-500 mb-1">Matriz</label>
+          <select id="cmpMatrizOrigem" class="border p-2 rounded w-full text-sm" disabled><option value="">Selecione a matriz</option></select>
+        </div>
+        <div>
+          <div class="text-xs font-semibold text-gray-700 mb-2 uppercase">Curso de destino</div>
+          <label class="block text-[11px] font-semibold text-gray-500 mb-1">Curso</label>
+          <select id="cmpCursoDestino" class="border p-2 rounded w-full text-sm mb-3"><option value="">Selecione o curso</option></select>
+          <label class="block text-[11px] font-semibold text-gray-500 mb-1">Matriz</label>
+          <select id="cmpMatrizDestino" class="border p-2 rounded w-full text-sm" disabled><option value="">Selecione a matriz</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center justify-end gap-2 p-4 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+      <button type="button" id="cmpStep1Cancelar" class="text-sm font-semibold py-2 px-4 rounded-full border border-gray-300 text-gray-600">Cancelar</button>
+      <button type="button" id="cmpStep1Proximo" class="export-btn" style="margin-top:0;" disabled>Próximo</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalCompararStep2" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4">
+  <div class="bg-white rounded-xl shadow-lg max-w-5xl w-full max-h-[90vh] flex flex-col">
+    <div class="flex items-center justify-between p-4 border-b border-gray-200">
+      <h2 class="text-lg font-bold text-gray-800">Comparar Matrizes de Dois Cursos</h2>
+      <button type="button" id="cmpStep2Fechar" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
+    </div>
+    <p class="px-4 pt-3 text-xs text-gray-600">Clique numa disciplina da matriz de origem e depois na disciplina equivalente da matriz de destino para formar um par (a ordem não importa). Cada par aparece na lista abaixo, com opção de excluir.</p>
+    <div class="p-4 overflow-y-auto flex-1">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <div class="text-xs font-semibold text-gray-700 mb-0.5">Matriz do Curso de origem</div>
+          <div id="cmpNomeMatrizOrigem" class="text-[11px] text-gray-500 mb-2"></div>
+          <div id="cmpListaOrigem" class="border rounded-lg max-h-72 overflow-y-auto"></div>
+        </div>
+        <div>
+          <div class="text-xs font-semibold text-gray-700 mb-0.5">Matriz da lista de destino</div>
+          <div id="cmpNomeMatrizDestino" class="text-[11px] text-gray-500 mb-2"></div>
+          <div id="cmpListaDestino" class="border rounded-lg max-h-72 overflow-y-auto"></div>
+        </div>
+      </div>
+      <div class="border-t border-gray-200 pt-3">
+        <div class="text-xs font-semibold text-gray-700 mb-2">Pares de equivalência selecionados</div>
+        <div id="cmpParesLista" class="space-y-1.5">
+          <p class="text-xs text-gray-400">Nenhum par selecionado ainda.</p>
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center justify-between gap-2 p-4 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+      <button type="button" id="cmpStep2Voltar" class="text-sm font-semibold py-2 px-4 rounded-full border border-gray-300 text-gray-600">&larr; Voltar</button>
+      <div class="flex items-center gap-2">
+        <button type="button" id="cmpStep2Fechar2" class="text-sm font-semibold py-2 px-4 rounded-full border border-gray-300 text-gray-600">Fechar</button>
+        <button type="button" id="cmpExportar" class="export-btn" style="margin-top:0;" disabled>Exportar pares (.xlsx)</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // Reaproveita o mesmo tipo de leitura da aba "Analisador de Isenção de
+  // Disciplinas": curso -> matrizes (CODGRADE/MATRIZ) -> disciplinas
+  // (CODPERIODO/PERÍODO/CODDISC/DISCIPLINA), lidas de window.planilhaIsencaoAtual.
+  var normCmp = function(v){ return (v === undefined || v === null) ? '' : String(v).trim(); };
+
+  var cmpOfertas = [];
+  function carregarCmpOfertas(){
+    cmpOfertas = [];
+    if(!window.planilhaIsencaoAtual) return;
+    var ws = window.planilhaIsencaoAtual.Sheets['OFERTAS'];
+    if(!ws) return;
+    var rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    cmpOfertas = rows
+      .filter(function(r){ return normCmp(r['CODDISC']) && normCmp(r['CURSO']); })
+      .map(function(r){
+        return {
+          curso: normCmp(r['CURSO']),
+          matrizCode: normCmp(r['CODGRADE']),
+          matrizDesc: normCmp(r['MATRIZ']),
+          periodoNum: Number(r['CODPERIODO']) || 0,
+          periodo: normCmp(r['PERÍODO']),
+          coddisc: normCmp(r['CODDISC']),
+          disciplina: normCmp(r['DISCIPLINA'])
+        };
+      });
+  }
+
+  function popularCmpCursos(selectEl){
+    selectEl.innerHTML = '<option value="">Selecione o curso</option>';
+    var cursos = Array.from(new Set(cmpOfertas.map(function(o){ return o.curso; }))).sort(function(a,b){ return a.localeCompare(b,'pt-BR'); });
+    cursos.forEach(function(c){
+      var opt = document.createElement('option');
+      opt.value = c; opt.textContent = c;
+      selectEl.appendChild(opt);
+    });
+  }
+
+  function popularCmpMatrizes(curso, selectMatriz){
+    selectMatriz.innerHTML = '<option value="">Selecione a matriz</option>';
+    var vistos = {};
+    var ordem = [];
+    cmpOfertas.filter(function(o){ return o.curso === curso; }).forEach(function(o){
+      if(!vistos[o.matrizCode]){ vistos[o.matrizCode] = o.matrizDesc; ordem.push(o.matrizCode); }
+    });
+    ordem.sort(function(a,b){ return a.localeCompare(b,'pt-BR',{numeric:true}); });
+    ordem.forEach(function(codigo){
+      var desc = vistos[codigo];
+      var opt = document.createElement('option');
+      opt.value = codigo;
+      opt.textContent = desc ? (codigo + ' — ' + desc) : codigo;
+      selectMatriz.appendChild(opt);
+    });
+    selectMatriz.disabled = ordem.length === 0;
+  }
+
+  function disciplinasDeMatriz(curso, matrizCode){
+    var vistos = {};
+    return cmpOfertas
+      .filter(function(o){ return o.curso === curso && o.matrizCode === matrizCode; })
+      .filter(function(o){ if(vistos[o.coddisc]) return false; vistos[o.coddisc] = true; return true; })
+      .sort(function(a,b){ return a.periodoNum - b.periodoNum || a.coddisc.localeCompare(b.coddisc); });
+  }
+
+  function descricaoMatriz(curso, matrizCode){
+    var achado = cmpOfertas.find(function(o){ return o.curso === curso && o.matrizCode === matrizCode; });
+    return achado ? achado.matrizDesc : '';
+  }
+
+  // ---- elementos ----
+  var btnAbrir = document.getElementById('btnCompararMatrizes');
+  var modal1 = document.getElementById('modalCompararStep1');
+  var modal2 = document.getElementById('modalCompararStep2');
+
+  var selCursoOrigem = document.getElementById('cmpCursoOrigem');
+  var selMatrizOrigem = document.getElementById('cmpMatrizOrigem');
+  var selCursoDestino = document.getElementById('cmpCursoDestino');
+  var selMatrizDestino = document.getElementById('cmpMatrizDestino');
+  var btnProximo = document.getElementById('cmpStep1Proximo');
+
+  function atualizarBotaoProximo(){
+    btnProximo.disabled = !(selCursoOrigem.value && selMatrizOrigem.value && selCursoDestino.value && selMatrizDestino.value);
+  }
+
+  selCursoOrigem.addEventListener('change', function(){
+    popularCmpMatrizes(selCursoOrigem.value, selMatrizOrigem);
+    atualizarBotaoProximo();
+  });
+  selMatrizOrigem.addEventListener('change', atualizarBotaoProximo);
+  selCursoDestino.addEventListener('change', function(){
+    popularCmpMatrizes(selCursoDestino.value, selMatrizDestino);
+    atualizarBotaoProximo();
+  });
+  selMatrizDestino.addEventListener('change', atualizarBotaoProximo);
+
+  function abrirModal(el){ el.classList.remove('hidden'); el.classList.add('flex'); }
+  function fecharModal(el){ el.classList.add('hidden'); el.classList.remove('flex'); }
+
+  btnAbrir.addEventListener('click', function(){
+    carregarCmpOfertas();
+    selCursoOrigem.value = ''; selMatrizOrigem.innerHTML = '<option value="">Selecione a matriz</option>'; selMatrizOrigem.disabled = true;
+    selCursoDestino.value = ''; selMatrizDestino.innerHTML = '<option value="">Selecione a matriz</option>'; selMatrizDestino.disabled = true;
+    popularCmpCursos(selCursoOrigem);
+    popularCmpCursos(selCursoDestino);
+    atualizarBotaoProximo();
+    abrirModal(modal1);
+  });
+
+  document.getElementById('cmpStep1Fechar').addEventListener('click', function(){ fecharModal(modal1); });
+  document.getElementById('cmpStep1Cancelar').addEventListener('click', function(){ fecharModal(modal1); });
+
+  // ---- Step 2: listas de disciplinas + pares ----
+  var cmpPares = []; // {origem:{coddisc,disciplina,periodo}, destino:{coddisc,disciplina,periodo}}
+  var pendenteOrigem = null;
+  var pendenteDestino = null;
+
+  function renderListaDisciplinas(containerEl, disciplinas, lado){
+    containerEl.innerHTML = '';
+    disciplinas.forEach(function(d){
+      var linha = document.createElement('div');
+      linha.className = 'curso-item';
+      linha.style.cursor = 'pointer';
+      linha.dataset.coddisc = d.coddisc;
+      linha.innerHTML =
+        '<span class="curso-name">' + (d.periodo ? d.periodo + ' — ' : '') + d.disciplina + '</span>' +
+        '<span class="curso-count">' + d.coddisc + '</span>';
+      linha.addEventListener('click', function(){
+        if(linha.classList.contains('cmp-usado')) return; // já faz parte de um par — não clicável
+        if(lado === 'origem'){
+          if(pendenteOrigem === d.coddisc){ pendenteOrigem = null; } else { pendenteOrigem = d.coddisc; }
+        } else {
+          if(pendenteDestino === d.coddisc){ pendenteDestino = null; } else { pendenteDestino = d.coddisc; }
+        }
+        atualizarDestaques();
+        tentarFormarPar();
+      });
+      containerEl.appendChild(linha);
+    });
+  }
+
+  function atualizarDestaques(){
+    document.querySelectorAll('#cmpListaOrigem .curso-item').forEach(function(el){
+      el.classList.toggle('checked', el.dataset.coddisc === pendenteOrigem);
+    });
+    document.querySelectorAll('#cmpListaDestino .curso-item').forEach(function(el){
+      el.classList.toggle('checked', el.dataset.coddisc === pendenteDestino);
+    });
+  }
+
+  // Disciplinas já usadas em algum par ficam cinza e não clicáveis, em
+  // ambas as listas de seleção.
+  var cmpUsadosOrigem = {};
+  var cmpUsadosDestino = {};
+  function atualizarUsados(){
+    document.querySelectorAll('#cmpListaOrigem .curso-item').forEach(function(el){
+      var usado = !!cmpUsadosOrigem[el.dataset.coddisc];
+      el.classList.toggle('cmp-usado', usado);
+      el.style.opacity = usado ? '.45' : '';
+      el.style.cursor = usado ? 'not-allowed' : 'pointer';
+      el.style.pointerEvents = usado ? 'none' : '';
+    });
+    document.querySelectorAll('#cmpListaDestino .curso-item').forEach(function(el){
+      var usado = !!cmpUsadosDestino[el.dataset.coddisc];
+      el.classList.toggle('cmp-usado', usado);
+      el.style.opacity = usado ? '.45' : '';
+      el.style.cursor = usado ? 'not-allowed' : 'pointer';
+      el.style.pointerEvents = usado ? 'none' : '';
+    });
+  }
+
+  var cmpDiscOrigemAtual = [], cmpDiscDestinoAtual = [];
+
+  function tentarFormarPar(){
+    if(!pendenteOrigem || !pendenteDestino) return;
+    var dOrigem = cmpDiscOrigemAtual.find(function(d){ return d.coddisc === pendenteOrigem; });
+    var dDestino = cmpDiscDestinoAtual.find(function(d){ return d.coddisc === pendenteDestino; });
+    if(!dOrigem || !dDestino) return;
+    cmpPares.push({ origem: dOrigem, destino: dDestino });
+    cmpUsadosOrigem[dOrigem.coddisc] = true;
+    cmpUsadosDestino[dDestino.coddisc] = true;
+    pendenteOrigem = null; pendenteDestino = null;
+    atualizarDestaques();
+    atualizarUsados();
+    renderPares();
+  }
+
+  function renderPares(){
+    var lista = document.getElementById('cmpParesLista');
+    lista.innerHTML = '';
+    document.getElementById('cmpExportar').disabled = cmpPares.length === 0;
+    if(cmpPares.length === 0){
+      lista.innerHTML = '<p class="text-xs text-gray-400">Nenhum par selecionado ainda.</p>';
+      return;
+    }
+    cmpPares.forEach(function(par, idx){
+      var linha = document.createElement('div');
+      linha.className = 'flex items-center justify-between gap-2 text-xs border rounded-lg p-2';
+      linha.innerHTML =
+        '<span class="flex-1"><b>' + par.origem.disciplina + '</b> <span class="text-gray-400">(' + par.origem.coddisc + ')</span>' +
+        ' &nbsp;⇄&nbsp; ' +
+        '<b>' + par.destino.disciplina + '</b> <span class="text-gray-400">(' + par.destino.coddisc + ')</span></span>' +
+        '<button type="button" class="cmp-remover-par text-red-500 font-bold px-2" title="Excluir par">&times;</button>';
+      linha.querySelector('.cmp-remover-par').addEventListener('click', function(){
+        var removido = cmpPares[idx];
+        delete cmpUsadosOrigem[removido.origem.coddisc];
+        delete cmpUsadosDestino[removido.destino.coddisc];
+        cmpPares.splice(idx, 1);
+        atualizarUsados();
+        renderPares();
+      });
+      lista.appendChild(linha);
+    });
+  }
+
+  var cmpContexto = null; // {curOrigem, matOrigemCodigo, matOrigemDesc, curDestino, matDestinoCodigo, matDestinoDesc}
+
+  btnProximo.addEventListener('click', function(){
+    var curOrigem = selCursoOrigem.value, matOrigem = selMatrizOrigem.value;
+    var curDestino = selCursoDestino.value, matDestino = selMatrizDestino.value;
+
+    cmpDiscOrigemAtual = disciplinasDeMatriz(curOrigem, matOrigem);
+    cmpDiscDestinoAtual = disciplinasDeMatriz(curDestino, matDestino);
+
+    var descOrigem = descricaoMatriz(curOrigem, matOrigem) || matOrigem;
+    var descDestino = descricaoMatriz(curDestino, matDestino) || matDestino;
+    cmpContexto = {
+      curOrigem: curOrigem, matOrigemCodigo: matOrigem, matOrigemDesc: descOrigem,
+      curDestino: curDestino, matDestinoCodigo: matDestino, matDestinoDesc: descDestino
+    };
+
+    document.getElementById('cmpNomeMatrizOrigem').textContent = curOrigem + ' — ' + descOrigem;
+    document.getElementById('cmpNomeMatrizDestino').textContent = curDestino + ' — ' + descDestino;
+
+    renderListaDisciplinas(document.getElementById('cmpListaOrigem'), cmpDiscOrigemAtual, 'origem');
+    renderListaDisciplinas(document.getElementById('cmpListaDestino'), cmpDiscDestinoAtual, 'destino');
+
+    pendenteOrigem = null; pendenteDestino = null;
+    cmpUsadosOrigem = {}; cmpUsadosDestino = {};
+    cmpPares = [];
+    atualizarUsados();
+    renderPares();
+
+    fecharModal(modal1);
+    abrirModal(modal2);
+  });
+
+  document.getElementById('cmpStep2Voltar').addEventListener('click', function(){
+    fecharModal(modal2);
+    abrirModal(modal1);
+  });
+  document.getElementById('cmpStep2Fechar').addEventListener('click', function(){ fecharModal(modal2); });
+  document.getElementById('cmpStep2Fechar2').addEventListener('click', function(){ fecharModal(modal2); });
+
+  // Busca a ementa de uma disciplina no índice compartilhado (vindo do
+  // Relatório consolidado, anexado em qualquer uma das duas abas). Usa a
+  // mesma normalização (maiúsculas + espaços colapsados) usada ao montar
+  // esse índice. Sem correspondência, ou sem Relatório anexado, "Sem Ementa".
+  function buscarEmenta(nomeDisciplina){
+    var indice = window.ementasIndexCompartilhado;
+    if(!indice) return 'Sem Ementa';
+    var chave = normCmp(nomeDisciplina).toUpperCase().replace(/\s+/g, ' ');
+    var achado = indice[chave];
+    return (achado && achado.ementa) ? achado.ementa : 'Sem Ementa';
+  }
+
+  document.getElementById('cmpExportar').addEventListener('click', function(){
+    if(cmpPares.length === 0 || !cmpContexto) return;
+
+    var cols = [
+      'Curso de Origem', 'Matriz de Origem', 'Período', 'Código Disciplina Origem', 'Nome Disciplina Origem', 'Ementa Disciplina Origem',
+      'Curso de Destino', 'Matriz de Destino', 'Período', 'Código Disciplina Destino', 'Nome Disciplina Destino', 'Ementa Disciplina Destino'
+    ];
+    var aoa = [cols];
+    cmpPares.forEach(function(par){
+      aoa.push([
+        cmpContexto.curOrigem,
+        cmpContexto.matOrigemDesc,
+        par.origem.periodo,
+        par.origem.coddisc,
+        par.origem.disciplina,
+        buscarEmenta(par.origem.disciplina),
+        cmpContexto.curDestino,
+        cmpContexto.matDestinoDesc,
+        par.destino.periodo,
+        par.destino.coddisc,
+        par.destino.disciplina,
+        buscarEmenta(par.destino.disciplina)
+      ]);
+    });
+
+    var ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [
+      {wch:32},{wch:34},{wch:14},{wch:16},{wch:36},{wch:60},
+      {wch:32},{wch:34},{wch:14},{wch:16},{wch:36},{wch:60}
+    ];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Pares de equivalência');
+
+    var nomeArquivo = 'Pares_Equivalencia_' +
+      cmpContexto.curOrigem.replace(/[^\wÀ-ÿ]+/g,'_') + '_x_' +
+      cmpContexto.curDestino.replace(/[^\wÀ-ÿ]+/g,'_') + '.xlsx';
+    XLSX.writeFile(wb, nomeArquivo);
+  });
+})();
+</script>
+
 </div><!-- /#tab-extrator -->
 
 <div id="tab-isencao" class="site-tab-panel">
