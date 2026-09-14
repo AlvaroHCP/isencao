@@ -372,6 +372,7 @@
   .grid-cols-1{grid-template-columns:repeat(1,minmax(0,1fr));}
   .grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr));}
   .inline-block{display:inline-block;}
+  .inline-flex{display:inline-flex;}
   .hidden{display:none;}
   .relative{position:relative;}
   .fixed{position:fixed;}
@@ -394,11 +395,14 @@
   .w-full{width:100%;}
   .w-10{width:2.5rem;}
   .w-4{width:1rem;}
+  .w-5{width:1.25rem;}
   .h-10{height:2.5rem;}
   .h-4{height:1rem;}
+  .h-5{height:1.25rem;}
   .flex-1{flex:1 1 0%;}
   .flex-shrink-0{flex-shrink:0;}
   .mx-auto{margin-left:auto;margin-right:auto;}
+  .mx-1{margin-left:.25rem;margin-right:.25rem;}
   .my-1{margin-top:.25rem;margin-bottom:.25rem;}
   .my-6{margin-top:1.5rem;margin-bottom:1.5rem;}
 
@@ -422,6 +426,7 @@
   .p-1{padding:.25rem;}
   .p-1\.5{padding:.375rem;}
   .p-2{padding:.5rem;}
+  .p-2\.5{padding:.625rem;}
   .p-3{padding:.75rem;}
   .p-4{padding:1rem;}
   .p-6{padding:1.5rem;}
@@ -433,9 +438,11 @@
   .py-0\.5{padding-top:.125rem;padding-bottom:.125rem;}
   .py-1\.5{padding-top:.375rem;padding-bottom:.375rem;}
   .py-2{padding-top:.5rem;padding-bottom:.5rem;}
+  .py-1{padding-top:.25rem;padding-bottom:.25rem;}
   .py-6{padding-top:1.5rem;padding-bottom:1.5rem;}
   .py-8{padding-top:2rem;padding-bottom:2rem;}
   .pb-4{padding-bottom:1rem;}
+  .pb-2{padding-bottom:.5rem;}
   .pt-3{padding-top:.75rem;}
   .mb-0\.5{margin-bottom:.125rem;}
   .mb-1{margin-bottom:.25rem;}
@@ -465,6 +472,7 @@
   .border-gray-100{border-color:#f3f4f6;}
   .border-gray-200{border-color:#e5e7eb;}
   .border-gray-300{border-color:#d1d5db;}
+  .border-gray-400{border-color:#9ca3af;}
   .border-\[color\:var\(--afya-magenta\)\]{border-color:var(--afya-magenta);}
   .rounded{border-radius:.25rem;}
   .rounded-full{border-radius:9999px;}
@@ -507,11 +515,13 @@
   .uppercase{text-transform:uppercase;}
   .italic{font-style:italic;}
   .whitespace-nowrap{white-space:nowrap;}
+  .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .leading-none{line-height:1;}
   .text-center{text-align:center;}
 
   /* Interactivity / states */
   .cursor-pointer{cursor:pointer;}
+  .cursor-help{cursor:help;}
   .cursor-not-allowed{cursor:not-allowed;}
   .opacity-40{opacity:.4;}
   .opacity-50{opacity:.5;}
@@ -1745,6 +1755,7 @@ document.getElementById('exportBtn').addEventListener('click', function(){
                 Quando ambas as disciplinas têm ementa, a comparação analisa os grandes conceitos (tópicos/sub-temas) de cada ementa — quanto mais detalhada a ementa, mais refinada fica a comparação por sub-tema. Quando falta ementa de um dos lados, a comparação usa o nome da disciplina.
             </p>
             <div id="modalLista" class="p-4 overflow-y-auto flex-1 space-y-3"></div>
+            <p id="modalContagemPendentes" class="text-xs font-semibold text-gray-600 px-4 pb-2"></p>
             <div class="flex items-center justify-between gap-3 p-4 border-t bg-gray-50 rounded-b-xl">
                 <p id="modalResumo" class="text-xs text-gray-500"></p>
                 <div class="flex gap-2">
@@ -2254,6 +2265,27 @@ document.getElementById('exportBtn').addEventListener('click', function(){
             return parcial ? parcial.display : '';
         }
 
+        // Converte um valor de nota vindo da Planilha de Disciplinas Aprovadas
+        // (que pode estar como "8.5", "8,5", "1.234,56" etc.) para um número
+        // decimal confiável, aceitando tanto "." quanto "," como separador na
+        // origem. O campo NOTA-EXT (type="number") exige ponto internamente;
+        // a conversão para vírgula acontece só na hora de exportar a lista.
+        function paraNumeroDecimal(valor) {
+            if (valor === undefined || valor === null) return NaN;
+            let s = String(valor).trim();
+            if (!s) return NaN;
+            const temVirgula = s.indexOf(',') !== -1;
+            const temPonto = s.indexOf('.') !== -1;
+            if (temVirgula && temPonto) {
+                // "1.234,56" -> ponto é separador de milhar, vírgula é decimal
+                s = s.replace(/\./g, '').replace(',', '.');
+            } else if (temVirgula) {
+                s = s.replace(',', '.');
+            }
+            const n = parseFloat(s);
+            return isNaN(n) ? NaN : n;
+        }
+
         function aplicarSugestaoNaLinha(sug) {
             const tr = document.querySelector(`#tbodyDisciplinas tr[data-coddisc="${CSS.escape(sug.coddisc)}"]`);
             if (!tr) return false;
@@ -2272,8 +2304,33 @@ document.getElementById('exportBtn').addEventListener('click', function(){
             tr.querySelector('.ch-ext').value = ap.ch && ap.ch !== 'não informado' ? ap.ch : '';
             tr.querySelector('.creditos-ext').value = ap.creditos && ap.creditos !== 'não informado' ? ap.creditos : '';
             tr.querySelector('.anosem-ext').value = ap.anoSemestre || '';
-            tr.querySelector('.nota-ext').value = ap.nota || '';
+            const notaConvertida = paraNumeroDecimal(ap.nota);
+            tr.querySelector('.nota-ext').value = isNaN(notaConvertida) ? '' : notaConvertida;
             return true;
+        }
+
+        // Contrapartida de aplicarSugestaoNaLinha: limpa da linha da matriz de
+        // destino (a que alimenta a planilha exportada) tudo o que havia sido
+        // preenchido pela equivalência que está sendo desfeita no modal.
+        function desfazerSugestaoNaLinha(coddisc) {
+            if (!coddisc) return;
+            const tr = document.querySelector(`#tbodyDisciplinas tr[data-coddisc="${CSS.escape(coddisc)}"]`);
+            if (!tr) return;
+
+            const iesUnicaMarcada = document.getElementById('iesUnica').checked;
+            if (!iesUnicaMarcada) {
+                const iesInput = tr.querySelector('.ies-input');
+                iesInput.value = '';
+                marcarValidadeIES(iesInput, true);
+            }
+
+            tr.querySelector('.nome-ext').value = '';
+            tr.querySelector('.cod-ext').value = '';
+            tr.querySelector('.ch-ext').value = '';
+            tr.querySelector('.creditos-ext').value = '';
+            tr.querySelector('.anosem-ext').value = '';
+            tr.querySelector('.nota-ext').value = '';
+            tr.classList.remove('linha-incompleta');
         }
 
         let itemsRenderizados = []; // preenchido a cada renderização do modal: {sug, item, btnAplicar, btnIgnorar, coddiscAtual}
@@ -2282,7 +2339,12 @@ document.getElementById('exportBtn').addEventListener('click', function(){
             const lista = document.getElementById('modalLista');
             lista.innerHTML = '';
             itemsRenderizados = [];
-            const coddiscsUsados = new Set();
+
+            // Disciplinas de destino já usadas em algum par ACEITO (em qualquer
+            // card) — somem das opções dos dropdowns dos demais cards ainda não
+            // aceitos, já que essa disciplina de destino já está preenchida na
+            // lista que será exportada.
+            const destinosOcupados = new Set();
 
             // Todas as disciplinas da matriz de destino atualmente carregada —
             // usadas para popular o dropdown de disciplina destino em cada card.
@@ -2292,57 +2354,70 @@ document.getElementById('exportBtn').addEventListener('click', function(){
                 periodo: tr.dataset.periodo
             }));
 
-            // Reflete o estado (habilitado/desabilitado) do botão "Aplicar" na
-            // visibilidade do card: sugestão sem ação possível sai da lista;
-            // se o botão voltar a ficar habilitável, o card reaparece.
-            function atualizarVisibilidadeItem(info) {
-                info.item.style.display = info.btnAplicar.disabled ? 'none' : '';
-                atualizarMensagemPendencias();
+            function atualizarContagemPendentes() {
+                const pendentes = itemsRenderizados.filter(info => !info.aceito && !info.ignorado).length;
+                const total = itemsRenderizados.length;
+                const el = document.getElementById('modalContagemPendentes');
+                el.textContent = total > 0
+                    ? `${pendentes} de ${total} disciplina(s) aprovada(s) ainda não tiveram um card clicado (aplicado ou ignorado).`
+                    : '';
             }
-            function atualizarMensagemPendencias() {
-                const algumVisivel = itemsRenderizados.some(info => info.btnAplicar && !info.btnAplicar.disabled);
-                let aviso = document.getElementById('modalSemPendencias');
-                if (sugestoesAtuais.length > 0 && !algumVisivel) {
-                    if (!aviso) {
-                        aviso = document.createElement('p');
-                        aviso.id = 'modalSemPendencias';
-                        aviso.className = 'text-sm text-gray-400 text-center py-6';
-                        aviso.textContent = 'Todas as sugestões desta matriz já foram tratadas (aplicadas, ignoradas ou substituídas).';
-                        lista.appendChild(aviso);
-                    }
-                } else if (aviso) {
-                    aviso.remove();
+
+            // Reconstrói as opções do dropdown de destino de um card AINDA NÃO
+            // aceito, ocultando as disciplinas de destino já ocupadas por
+            // outros cards aceitos (mantém a opção atual do próprio card, se
+            // ela ainda não tiver sido ocupada por outro).
+            function popularOpcoesDestino(info) {
+                const selectEl = info.item.querySelector('.modal-destino-select');
+                if (!selectEl) return;
+                let valorAtual = info.coddiscAtual;
+                if (valorAtual && destinosOcupados.has(valorAtual)) valorAtual = null;
+
+                selectEl.innerHTML = '';
+                if (!valorAtual) {
+                    const ph = document.createElement('option');
+                    ph.value = '';
+                    ph.textContent = 'Selecione a disciplina equivalente…';
+                    ph.disabled = true;
+                    ph.selected = true;
+                    selectEl.appendChild(ph);
                 }
-            }
-
-            // Como cada card já representa uma disciplina APROVADA única, o
-            // risco de duplicidade agora é do lado do DESTINO: duas
-            // disciplinas aprovadas diferentes apontando para a mesma
-            // disciplina da matriz. Ao aplicar uma, bloqueia "Aplicar" nas
-            // demais que estejam com o mesmo destino selecionado.
-            function bloquearOutrasComMesmoDestino(coddisc, idxAtual) {
-                coddiscsUsados.add(coddisc);
-                itemsRenderizados.forEach((info, i) => {
-                    if (i === idxAtual) return;
-                    if (info.coddiscAtual === coddisc && !info.btnAplicar.disabled) {
-                        info.btnAplicar.disabled = true;
-                        info.btnAplicar.classList.add('opacity-50', 'cursor-not-allowed');
-                        info.btnAplicar.title = 'Esta disciplina da matriz de destino já recebeu outra equivalência aplicada.';
-                        atualizarVisibilidadeItem(info);
-                    }
+                linhasDestino.forEach(ld => {
+                    if (destinosOcupados.has(ld.coddisc) && ld.coddisc !== valorAtual) return;
+                    const opt = document.createElement('option');
+                    opt.value = ld.coddisc;
+                    opt.textContent = (ld.periodo ? ld.periodo + ' — ' : '') + ld.disciplina;
+                    if (ld.coddisc === valorAtual) opt.selected = true;
+                    selectEl.appendChild(opt);
                 });
+                info.coddiscAtual = valorAtual;
             }
 
-            if (sugestoesAtuais.length === 0) {
-                lista.innerHTML = `<p class="text-sm text-gray-400 text-center py-8">Nenhuma equivalência acima dos limiares atuais (ementa ${Math.round(limiarEmentaAtual()*100)}% · nome ${Math.round(limiarNomeAtual()*100)}%) foi encontrada para esta matriz.</p>`;
+            function atualizarTodasAsOpcoesDestino() {
+                itemsRenderizados.forEach(info => { if (!info.aceito) popularOpcoesDestino(info); });
             }
 
-            sugestoesAtuais.forEach((sug, idx) => {
-                const item = document.createElement('div');
-                item.className = 'border rounded-lg p-3';
-                item.dataset.idx = idx;
+            function textoResumoInfo(info) {
+                const ap = info.sug.aprovada;
+                const ld = linhasDestino.find(l => l.coddisc === info.coddiscAtual);
+                const linhas = [
+                    'Disciplina aprovada: ' + ap.disciplina,
+                    'IES: ' + (ap.ies || 'não informada'),
+                    'Código: ' + (ap.codigo || '-'),
+                    'CH origem: ' + (ap.ch || '-'),
+                    'Créditos: ' + (ap.creditos || '-'),
+                    'Ano/Semestre: ' + (ap.anoSemestre || '-'),
+                    'Nota: ' + (ap.nota || '-'),
+                    '',
+                    'Equivalente à disciplina de destino: ' + (ld ? ((ld.periodo ? ld.periodo + ' — ' : '') + ld.disciplina) : '-')
+                ];
+                return linhas.join('\n');
+            }
 
-                const ap = sug.aprovada;
+            // Monta (ou remonta) o conteúdo EXPANDIDO de um card ainda não aceito,
+            // com todos os campos, o dropdown de destino e os botões Aplicar/Ignorar.
+            function renderExpandido(info) {
+                const sug = info.sug, ap = sug.aprovada;
                 const temSugestaoAutomatica = !!sug.coddisc;
                 const pct = temSugestaoAutomatica ? Math.round(sug.score * 100) : null;
                 const baseLabel = sug.base === 'ementa' ? 'ementa' : 'nome da disciplina';
@@ -2353,7 +2428,8 @@ document.getElementById('exportBtn').addEventListener('click', function(){
                 const ementaOrigemHtml = sug.ementaOrigem ? escapeHtml(sug.ementaOrigem) : '<span class="italic text-gray-400">Sem ementa cadastrada</span>';
                 const campoOuTraco = v => (v !== undefined && v !== null && v !== '' && v !== 'não informado') ? escapeHtml(v) : '-';
 
-                item.innerHTML = `
+                info.item.className = 'border rounded-lg p-3';
+                info.item.innerHTML = `
                     <div class="flex items-start justify-between gap-3">
                         <div class="text-xs flex-1">
                             <div class="font-semibold text-gray-800">${escapeHtml(ap.disciplina)}</div>
@@ -2387,39 +2463,16 @@ document.getElementById('exportBtn').addEventListener('click', function(){
                     </div>
                 `;
 
-                // Popula o dropdown com TODAS as disciplinas da matriz de destino,
-                // pré-selecionando a equivalência calculada como mais próxima —
-                // ou, se nenhuma passou do limiar, um placeholder pedindo escolha
-                // manual (a disciplina aprovada continua na lista mesmo assim).
-                const selectDestino = item.querySelector('.modal-destino-select');
-                if (!temSugestaoAutomatica) {
-                    const optPlaceholder = document.createElement('option');
-                    optPlaceholder.value = '';
-                    optPlaceholder.textContent = 'Selecione a disciplina equivalente…';
-                    optPlaceholder.disabled = true;
-                    optPlaceholder.selected = true;
-                    selectDestino.appendChild(optPlaceholder);
-                }
-                linhasDestino.forEach(ld => {
-                    const opt = document.createElement('option');
-                    opt.value = ld.coddisc;
-                    opt.textContent = (ld.periodo ? ld.periodo + ' — ' : '') + ld.disciplina;
-                    if (ld.coddisc === sug.coddisc) opt.selected = true;
-                    selectDestino.appendChild(opt);
-                });
+                const selectDestino = info.item.querySelector('.modal-destino-select');
+                const btnAplicar = info.item.querySelector('.modal-aplicar');
+                const btnIgnorar = info.item.querySelector('.modal-ignorar');
+                const badgeEl = info.item.querySelector('.modal-badge');
+                const ementaDestinoEl = info.item.querySelector('.modal-ementa-destino');
+                info.btnAplicar = btnAplicar;
+                info.btnIgnorar = btnIgnorar;
 
-                const btnAplicar = item.querySelector('.modal-aplicar');
-                const btnIgnorar = item.querySelector('.modal-ignorar');
-                const badgeEl = item.querySelector('.modal-badge');
-                const ementaDestinoEl = item.querySelector('.modal-ementa-destino');
-                const info = { sug, item, btnAplicar, btnIgnorar, coddiscAtual: sug.coddisc || null };
-                itemsRenderizados.push(info);
+                popularOpcoesDestino(info);
 
-                // Ao trocar a disciplina de destino no dropdown, recalcula a
-                // comparação (ementa se ambas tiverem, senão nome) para o NOVO
-                // par e atualiza o card — a aplicação passa a usar essa nova
-                // disciplina de destino, inclusive para preencher CH Origem,
-                // Créditos, Ano/Sem, Nota etc. na linha correta da matriz.
                 selectDestino.addEventListener('change', () => {
                     const novaLinha = linhasDestino.find(ld => ld.coddisc === selectDestino.value);
                     if (!novaLinha) { info.coddiscAtual = null; return; }
@@ -2443,31 +2496,72 @@ document.getElementById('exportBtn').addEventListener('click', function(){
                 });
 
                 btnAplicar.addEventListener('click', () => {
-                    const alvo = itemsRenderizados[idx];
-                    if (!alvo.coddiscAtual) {
+                    if (!info.coddiscAtual) {
                         badgeEl.textContent = 'Selecione uma disciplina de destino no dropdown acima antes de aplicar.';
                         badgeEl.classList.add('border-red-300', 'text-red-500');
                         return;
                     }
-                    const sugEfetiva = Object.assign({}, alvo.sug, { coddisc: alvo.coddiscAtual });
+                    const sugEfetiva = Object.assign({}, info.sug, { coddisc: info.coddiscAtual });
                     aplicarSugestaoNaLinha(sugEfetiva);
-                    alvo.item.classList.add('opacity-40');
-                    alvo.item.querySelectorAll('button, select').forEach(b => b.disabled = true);
-                    bloquearOutrasComMesmoDestino(alvo.coddiscAtual, idx);
-                    atualizarVisibilidadeItem(alvo);
+                    info.aceito = true;
+                    destinosOcupados.add(info.coddiscAtual);
+                    renderCompacto(info);
+                    atualizarTodasAsOpcoesDestino();
+                    atualizarContagemPendentes();
                 });
                 btnIgnorar.addEventListener('click', () => {
-                    // Age SOMENTE sobre este card (índice desta sugestão específica),
-                    // nunca sobre outros cards — mesmo que a disciplina de destino
-                    // ou a disciplina aprovada tenham nomes iguais em outro card.
-                    const alvo = itemsRenderizados[idx];
-                    alvo.item.classList.add('opacity-40');
-                    alvo.item.querySelectorAll('button, select').forEach(b => b.disabled = true);
-                    atualizarVisibilidadeItem(alvo);
+                    // Age SOMENTE sobre este card — nunca sobre outros, mesmo que a
+                    // disciplina de destino ou a aprovada tenham nomes iguais alhures.
+                    info.ignorado = true;
+                    info.item.style.display = 'none';
+                    atualizarContagemPendentes();
                 });
+            }
 
+            // Substitui o card por uma versão compacta e não clicável, cinza,
+            // mostrando só disciplina origem ⇄ disciplina destino, um botão
+            // "i" (hover mostra os detalhes do card original) e "Desfazer".
+            function renderCompacto(info) {
+                const ld = linhasDestino.find(l => l.coddisc === info.coddiscAtual);
+                const nomeDestino = ld ? ((ld.periodo ? ld.periodo + ' — ' : '') + ld.disciplina) : '(disciplina de destino)';
+
+                info.item.className = 'border rounded-lg p-2.5 bg-gray-100';
+                info.item.innerHTML = `
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="text-xs text-gray-500 flex-1 truncate">
+                            <span class="font-semibold text-gray-600">${escapeHtml(info.sug.aprovada.disciplina)}</span>
+                            <span class="mx-1">⇄</span>
+                            <span class="font-semibold text-gray-600">${escapeHtml(nomeDestino)}</span>
+                        </div>
+                        <div class="flex items-center gap-1 flex-shrink-0">
+                            <span class="cmp-info-btn inline-flex items-center justify-center w-5 h-5 rounded-full border border-gray-400 text-gray-500 text-[11px] font-bold cursor-help" title="${escapeHtml(textoResumoInfo(info))}">i</span>
+                            <button type="button" class="modal-desfazer text-xs font-semibold py-1 px-3 rounded-full border border-gray-300 text-gray-600">Desfazer</button>
+                        </div>
+                    </div>
+                `;
+                info.item.querySelector('.modal-desfazer').addEventListener('click', () => {
+                    desfazerSugestaoNaLinha(info.coddiscAtual);
+                    info.aceito = false;
+                    destinosOcupados.delete(info.coddiscAtual);
+                    renderExpandido(info);
+                    atualizarTodasAsOpcoesDestino();
+                    atualizarContagemPendentes();
+                });
+            }
+
+            if (sugestoesAtuais.length === 0) {
+                lista.innerHTML = `<p class="text-sm text-gray-400 text-center py-8">Nenhuma equivalência acima dos limiares atuais (ementa ${Math.round(limiarEmentaAtual()*100)}% · nome ${Math.round(limiarNomeAtual()*100)}%) foi encontrada para esta matriz.</p>`;
+            }
+
+            sugestoesAtuais.forEach((sug) => {
+                const item = document.createElement('div');
+                const info = { sug, item, coddiscAtual: sug.coddisc || null, aceito: false, ignorado: false };
+                itemsRenderizados.push(info);
+                renderExpandido(info);
                 lista.appendChild(item);
             });
+
+            atualizarContagemPendentes();
 
             document.getElementById('modalResumo').textContent =
                 sugestoesAtuais.length > 0 ? `${sugestoesAtuais.length} sugestão(ões) — limiares: ementa ${Math.round(limiarEmentaAtual()*100)}% / nome ${Math.round(limiarNomeAtual()*100)}%.` : '';
@@ -2494,11 +2588,11 @@ document.getElementById('exportBtn').addEventListener('click', function(){
             if (e.target.id === 'modalSugestoes') fecharModalSugestoes();
         });
         document.getElementById('modalAplicarTodas').addEventListener('click', () => {
-            // Simula clique em cada botão "Aplicar" ainda habilitado, na ordem da lista.
-            // Como cada clique já bloqueia outras linhas que usem a mesma disciplina
-            // aprovada, isso garante que cada aprovada seja usada uma única vez.
+            // Simula clique em cada botão "Aplicar" dos cards ainda pendentes
+            // (nem aceitos, nem ignorados), na ordem da lista. Cada clique já
+            // atualiza as opções de destino disponíveis para os próximos.
             itemsRenderizados.forEach(info => {
-                if (!info.btnAplicar.disabled) info.btnAplicar.click();
+                if (!info.aceito && !info.ignorado && info.btnAplicar) info.btnAplicar.click();
             });
         });
 
@@ -2658,6 +2752,10 @@ document.getElementById('exportBtn').addEventListener('click', function(){
                 }
 
                 const nota = Number(notaExt);
+                // A lista exportada usa vírgula como separador decimal (padrão
+                // brasileiro), independentemente de como a nota foi digitada
+                // ou importada.
+                const notaFormatada = Number.isFinite(nota) ? String(nota).replace('.', ',') : nota;
                 registros.push({
                     'CODCOLIGADA': 20,
                     'RA': ra,
@@ -2667,7 +2765,7 @@ document.getElementById('exportBtn').addEventListener('click', function(){
                     'IDHABILITACAOFILIAL': idHabilitacaoFilial,
                     'CODSTATUS': 1151,
                     'CARGAHORARIA': Number(tr.dataset.ch) || tr.dataset.ch,
-                    'NOTA': nota,
+                    'NOTA': notaFormatada,
                     'FALTAS': 0,
                     'NUMCREDITOS': Number(tr.dataset.credAcademicos) || tr.dataset.credAcademicos,
                     'EXCLUSIVO': 'N',
@@ -2679,7 +2777,7 @@ document.getElementById('exportBtn').addEventListener('click', function(){
                     'ANOSEMESTREEXT': anosemExt,
                     'CHEXT': Number(chExt),
                     'NUMCREDITOSEXT': Number(credExt),
-                    'NOTAEXT': nota,
+                    'NOTAEXT': notaFormatada,
                     'FALTAEXT': 0,
                     'STATUSEXT': 1143,
                     'INSTITUICAOEXT': instituicoesMap.has(ies) ? instituicoesMap.get(ies) : ''
