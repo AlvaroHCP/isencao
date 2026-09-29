@@ -537,6 +537,44 @@
 
   /* Flex utility used only on the tab-2 outer modal wrapper when visible */
   #modalSugestoes.flex{display:flex;}
+
+  /* Switch "Comparar por código / Comparar por nome" */
+  .cmp-switch{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding:0;
+  }
+  .cmp-switch-track{
+    position:relative;
+    width:36px;
+    height:20px;
+    background:#d1d5db;
+    border-radius:9999px;
+    transition:background .15s ease;
+    flex-shrink:0;
+  }
+  .cmp-switch[data-ativo="true"] .cmp-switch-track{ background:var(--afya-magenta); }
+  .cmp-switch-thumb{
+    position:absolute;
+    top:2px;
+    left:2px;
+    width:16px;
+    height:16px;
+    background:#fff;
+    border-radius:9999px;
+    transition:transform .15s ease;
+    box-shadow:0 1px 2px rgba(0,0,0,.2);
+  }
+  .cmp-switch[data-ativo="true"] .cmp-switch-thumb{ transform:translateX(16px); }
+  .cmp-switch-label{
+    font-size:12px;
+    font-weight:600;
+    color:#4b5563;
+  }
 </style>
 </head>
 <body>
@@ -1291,6 +1329,14 @@ document.getElementById('exportBtn').addEventListener('click', function(){
       <button type="button" id="cmpStep2Fechar" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
     </div>
     <p class="px-4 pt-3 text-xs text-gray-600">Clique numa disciplina da matriz de origem e depois na disciplina equivalente da matriz de destino para formar um par (a ordem não importa). Cada par aparece na lista abaixo, com opção de excluir.</p>
+    <div class="px-4 pt-3">
+      <div class="text-xs font-semibold text-gray-700 mb-1">Comparação</div>
+      <button type="button" id="cmpSwitchComparacao" class="cmp-switch" data-ativo="false" aria-pressed="false">
+        <span class="cmp-switch-track"><span class="cmp-switch-thumb"></span></span>
+        <span id="cmpSwitchLabel" class="cmp-switch-label">Comparar por nome</span>
+      </button>
+      <p class="text-[11px] text-gray-500 mt-1">Só afeta o bloqueio de disciplinas já usadas na <b>lista de destino</b> (a lista de origem continua bloqueada só por código).</p>
+    </div>
     <div class="p-4 overflow-y-auto flex-1">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>
@@ -1333,6 +1379,22 @@ document.getElementById('exportBtn').addEventListener('click', function(){
   // Disciplinas": curso -> matrizes (CODGRADE/MATRIZ) -> disciplinas
   // (CODPERIODO/PERÍODO/CODDISC/DISCIPLINA), lidas de window.planilhaIsencaoAtual.
   var normCmp = function(v){ return (v === undefined || v === null) ? '' : String(v).trim(); };
+
+  // Para efeito de bloqueio "mesma disciplina" (código + nome), o nome
+  // considerado é somente o texto depois do PRIMEIRO delimitador — "-" (hífen)
+  // ou "—" (travessão), o que aparecer primeiro no texto (ex.: "ADS101 -
+  // Algoritmos e Lógica de Programação" ou "ADS101 — Algoritmos..." viram
+  // "ALGORITMOS E LÓGICA DE PROGRAMAÇÃO"). Se não houver nenhum dos dois no
+  // texto, usa-se o nome integral.
+  function nomeParaComparacao(nomeOriginal){
+    var texto = normCmp(nomeOriginal);
+    var idxHifen = texto.indexOf('-');
+    var idxTravessao = texto.indexOf('—');
+    var candidatos = [idxHifen, idxTravessao].filter(function(i){ return i !== -1; });
+    var idx = candidatos.length ? Math.min.apply(Math, candidatos) : -1;
+    var resultado = idx === -1 ? texto : texto.slice(idx + 1);
+    return resultado.trim().toUpperCase();
+  }
 
   var cmpOfertas = [];
   function carregarCmpOfertas(){
@@ -1451,11 +1513,12 @@ document.getElementById('exportBtn').addEventListener('click', function(){
       linha.className = 'curso-item';
       linha.style.cursor = 'pointer';
       linha.dataset.coddisc = d.coddisc;
+      linha.dataset.disciplinaNome = nomeParaComparacao(d.disciplina);
       linha.innerHTML =
         '<span class="curso-name">' + (d.periodo ? d.periodo + ' — ' : '') + d.disciplina + '</span>' +
         '<span class="curso-count">' + d.coddisc + '</span>';
       linha.addEventListener('click', function(){
-        if(linha.classList.contains('cmp-usado')) return; // já faz parte de um par — não clicável
+        if(linha.classList.contains('cmp-usado')) return; // já faz parte de um par (por código OU nome) — não clicável
         if(lado === 'origem'){
           if(pendenteOrigem === d.coddisc){ pendenteOrigem = null; } else { pendenteOrigem = d.coddisc; }
         } else {
@@ -1478,25 +1541,70 @@ document.getElementById('exportBtn').addEventListener('click', function(){
   }
 
   // Disciplinas já usadas em algum par ficam cinza e não clicáveis, em
-  // ambas as listas de seleção.
+  // ambas as listas de seleção — bloqueadas somente quando o PAR (código,
+  // nome) coincide exatamente com o de uma disciplina já usada; código
+  // igual com nome diferente, ou nome igual com código diferente, NÃO
+  // bloqueia. Contadores (não booleanos) para que a exclusão de um par
+  // libere corretamente só o que não estiver mais em uso por nenhum outro.
+  // ORIGEM: bloqueio simples por código (mapa com contador, como antes).
+  // DESTINO: bloqueio calculado AO VIVO em cima dos pares já formados,
+  // exclusivamente por NOME ou por CÓDIGO (nunca os dois juntos), conforme
+  // o switch "Comparar por nome / Comparar por código" no topo do modal.
   var cmpUsadosOrigem = {};
-  var cmpUsadosDestino = {};
+  var cmpCompararPorCodigo = false; // false = comparar por nome (padrão)
+
+  function chaveUso(coddisc, nome){ return coddisc + '||' + nome; }
+  function marcarUsado(mapa, coddisc, nome){
+    var chave = chaveUso(coddisc, nome);
+    mapa[chave] = (mapa[chave] || 0) + 1;
+  }
+  function desmarcarUsado(mapa, coddisc, nome){
+    var chave = chaveUso(coddisc, nome);
+    if(mapa[chave]){ mapa[chave]--; if(mapa[chave] <= 0) delete mapa[chave]; }
+  }
+
+  function destinoEstaUsado(coddisc, nomeComparacao){
+    return cmpPares.some(function(par){
+      return cmpCompararPorCodigo
+        ? par.destino.coddisc === coddisc
+        : nomeParaComparacao(par.destino.disciplina) === nomeComparacao;
+    });
+  }
+
   function atualizarUsados(){
     document.querySelectorAll('#cmpListaOrigem .curso-item').forEach(function(el){
-      var usado = !!cmpUsadosOrigem[el.dataset.coddisc];
+      // Lado ORIGEM: bloqueio somente por código (comportamento original,
+      // sem levar o nome em conta).
+      var usado = !!cmpUsadosOrigem[chaveUso(el.dataset.coddisc, '')];
       el.classList.toggle('cmp-usado', usado);
       el.style.opacity = usado ? '.45' : '';
       el.style.cursor = usado ? 'not-allowed' : 'pointer';
       el.style.pointerEvents = usado ? 'none' : '';
     });
     document.querySelectorAll('#cmpListaDestino .curso-item').forEach(function(el){
-      var usado = !!cmpUsadosDestino[el.dataset.coddisc];
+      // Lado DESTINO: bloqueio EXCLUSIVO por nome ou por código, conforme o switch.
+      var usado = destinoEstaUsado(el.dataset.coddisc, el.dataset.disciplinaNome);
       el.classList.toggle('cmp-usado', usado);
       el.style.opacity = usado ? '.45' : '';
       el.style.cursor = usado ? 'not-allowed' : 'pointer';
       el.style.pointerEvents = usado ? 'none' : '';
     });
   }
+
+  // ---- Switch "Comparar por nome / Comparar por código" ----
+  var btnSwitchComparacao = document.getElementById('cmpSwitchComparacao');
+  var lblSwitchComparacao = document.getElementById('cmpSwitchLabel');
+  function atualizarSwitchVisual(){
+    btnSwitchComparacao.dataset.ativo = cmpCompararPorCodigo ? 'true' : 'false';
+    btnSwitchComparacao.setAttribute('aria-pressed', cmpCompararPorCodigo ? 'true' : 'false');
+    lblSwitchComparacao.textContent = cmpCompararPorCodigo ? 'Comparar por código' : 'Comparar por nome';
+  }
+  btnSwitchComparacao.addEventListener('click', function(){
+    cmpCompararPorCodigo = !cmpCompararPorCodigo;
+    atualizarSwitchVisual();
+    atualizarUsados();
+  });
+  atualizarSwitchVisual();
 
   var cmpDiscOrigemAtual = [], cmpDiscDestinoAtual = [];
 
@@ -1506,8 +1614,7 @@ document.getElementById('exportBtn').addEventListener('click', function(){
     var dDestino = cmpDiscDestinoAtual.find(function(d){ return d.coddisc === pendenteDestino; });
     if(!dOrigem || !dDestino) return;
     cmpPares.push({ origem: dOrigem, destino: dDestino });
-    cmpUsadosOrigem[dOrigem.coddisc] = true;
-    cmpUsadosDestino[dDestino.coddisc] = true;
+    marcarUsado(cmpUsadosOrigem, dOrigem.coddisc, '');
     pendenteOrigem = null; pendenteDestino = null;
     atualizarDestaques();
     atualizarUsados();
@@ -1532,8 +1639,7 @@ document.getElementById('exportBtn').addEventListener('click', function(){
         '<button type="button" class="cmp-remover-par text-red-500 font-bold px-2" title="Excluir par">&times;</button>';
       linha.querySelector('.cmp-remover-par').addEventListener('click', function(){
         var removido = cmpPares[idx];
-        delete cmpUsadosOrigem[removido.origem.coddisc];
-        delete cmpUsadosDestino[removido.destino.coddisc];
+        desmarcarUsado(cmpUsadosOrigem, removido.origem.coddisc, '');
         cmpPares.splice(idx, 1);
         atualizarUsados();
         renderPares();
@@ -1579,7 +1685,7 @@ document.getElementById('exportBtn').addEventListener('click', function(){
     renderListaDisciplinas(document.getElementById('cmpListaDestino'), cmpDiscDestinoAtual, 'destino');
 
     pendenteOrigem = null; pendenteDestino = null;
-    cmpUsadosOrigem = {}; cmpUsadosDestino = {};
+    cmpUsadosOrigem = {};
     cmpPares = [];
     atualizarUsados();
     renderPares();
