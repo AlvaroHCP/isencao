@@ -1495,6 +1495,10 @@ document.getElementById('exportBtn').addEventListener('click', function(){
     popularCmpCursos(selCursoOrigem);
     popularCmpCursos(selCursoDestino);
     atualizarBotaoProximo();
+    // Início de uma comparação nova (não um "Voltar" dentro da mesma
+    // sessão): aqui sim zera os pares acumulados.
+    cmpPares = [];
+    cmpUsadosOrigem = {};
     abrirModal(modal1);
   });
 
@@ -1613,7 +1617,18 @@ document.getElementById('exportBtn').addEventListener('click', function(){
     var dOrigem = cmpDiscOrigemAtual.find(function(d){ return d.coddisc === pendenteOrigem; });
     var dDestino = cmpDiscDestinoAtual.find(function(d){ return d.coddisc === pendenteDestino; });
     if(!dOrigem || !dDestino) return;
-    cmpPares.push({ origem: dOrigem, destino: dDestino });
+    // Cada par guarda o curso/matriz de origem e de destino vigentes NO
+    // MOMENTO em que ele foi formado — não um valor global único — para que
+    // trocar de curso/matriz depois (via "Voltar" ou pelos dropdowns de
+    // destino) não altere os pares já criados anteriormente.
+    cmpPares.push({
+      origem: dOrigem,
+      destino: dDestino,
+      origemCurso: cmpContexto.curOrigem,
+      origemMatrizDesc: cmpContexto.matOrigemDesc,
+      destinoCurso: cmpContexto.curDestino,
+      destinoMatrizDesc: cmpContexto.matDestinoDesc
+    });
     marcarUsado(cmpUsadosOrigem, dOrigem.coddisc, '');
     pendenteOrigem = null; pendenteDestino = null;
     atualizarDestaques();
@@ -1633,9 +1648,10 @@ document.getElementById('exportBtn').addEventListener('click', function(){
       var linha = document.createElement('div');
       linha.className = 'flex items-center justify-between gap-2 text-xs border rounded-lg p-2';
       linha.innerHTML =
-        '<span class="flex-1"><b>' + par.origem.disciplina + '</b> <span class="text-gray-400">(' + par.origem.coddisc + ')</span>' +
+        '<span class="flex-1">' +
+        '<span class="text-gray-400">[' + par.origemCurso + ']</span> <b>' + par.origem.disciplina + '</b> <span class="text-gray-400">(' + par.origem.coddisc + ')</span>' +
         ' &nbsp;⇄&nbsp; ' +
-        '<b>' + par.destino.disciplina + '</b> <span class="text-gray-400">(' + par.destino.coddisc + ')</span></span>' +
+        '<span class="text-gray-400">[' + par.destinoCurso + ']</span> <b>' + par.destino.disciplina + '</b> <span class="text-gray-400">(' + par.destino.coddisc + ')</span></span>' +
         '<button type="button" class="cmp-remover-par text-red-500 font-bold px-2" title="Excluir par">&times;</button>';
       linha.querySelector('.cmp-remover-par').addEventListener('click', function(){
         var removido = cmpPares[idx];
@@ -1684,9 +1700,11 @@ document.getElementById('exportBtn').addEventListener('click', function(){
     renderListaDisciplinas(document.getElementById('cmpListaOrigem'), cmpDiscOrigemAtual, 'origem');
     renderListaDisciplinas(document.getElementById('cmpListaDestino'), cmpDiscDestinoAtual, 'destino');
 
+    // NÃO reseta cmpPares nem cmpUsadosOrigem aqui: os pares já formados em
+    // sessões anteriores (outros cursos/matrizes) continuam valendo e saem
+    // na exportação. As disciplinas já usadas em pares anteriores aparecem
+    // corretamente cinza/bloqueadas se o mesmo curso/matriz for revisitado.
     pendenteOrigem = null; pendenteDestino = null;
-    cmpUsadosOrigem = {};
-    cmpPares = [];
     atualizarUsados();
     renderPares();
 
@@ -1741,7 +1759,7 @@ document.getElementById('exportBtn').addEventListener('click', function(){
   }
 
   document.getElementById('cmpExportar').addEventListener('click', function(){
-    if(cmpPares.length === 0 || !cmpContexto) return;
+    if(cmpPares.length === 0) return;
 
     var cols = [
       'Curso de Origem', 'Matriz de Origem', 'Período', 'Código Disciplina Origem', 'Nome Disciplina Origem', 'Ementa Disciplina Origem',
@@ -1750,14 +1768,14 @@ document.getElementById('exportBtn').addEventListener('click', function(){
     var aoa = [cols];
     cmpPares.forEach(function(par){
       aoa.push([
-        cmpContexto.curOrigem,
-        cmpContexto.matOrigemDesc,
+        par.origemCurso,
+        par.origemMatrizDesc,
         par.origem.periodo,
         par.origem.coddisc,
         par.origem.disciplina,
         buscarEmenta(par.origem.disciplina),
-        cmpContexto.curDestino,
-        cmpContexto.matDestinoDesc,
+        par.destinoCurso,
+        par.destinoMatrizDesc,
         par.destino.periodo,
         par.destino.coddisc,
         par.destino.disciplina,
@@ -1773,9 +1791,11 @@ document.getElementById('exportBtn').addEventListener('click', function(){
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Pares de equivalência');
 
+    // Cursos distintos envolvidos nos pares (podem ser vários, já que os
+    // pares acumulam entre diferentes seleções de curso/matriz).
+    var cursosEnvolvidos = Array.from(new Set(cmpPares.map(function(p){ return p.origemCurso; }).concat(cmpPares.map(function(p){ return p.destinoCurso; }))));
     var nomeArquivo = 'Pares_Equivalencia_' +
-      cmpContexto.curOrigem.replace(/[^\wÀ-ÿ]+/g,'_') + '_x_' +
-      cmpContexto.curDestino.replace(/[^\wÀ-ÿ]+/g,'_') + '.xlsx';
+      cursosEnvolvidos.map(function(c){ return c.replace(/[^\wÀ-ÿ]+/g,'_'); }).join('_x_') + '.xlsx';
     XLSX.writeFile(wb, nomeArquivo);
   });
 })();
